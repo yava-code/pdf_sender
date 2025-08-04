@@ -5,10 +5,10 @@ from datetime import datetime, timedelta
 
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-from aiogram.types import FSInputFile
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import FSInputFile
 
 from config import Config
 from database_manager import DatabaseManager
@@ -20,6 +20,7 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
 
 # Define FSM states for PDF upload
 class UploadPDF(StatesGroup):
@@ -37,7 +38,7 @@ class PDFSenderBot:
 
         # Create upload directory if it doesn't exist
         os.makedirs(Config.UPLOAD_DIR, exist_ok=True)
-        
+
         # Register handlers
         self._register_handlers()
 
@@ -51,18 +52,15 @@ class PDFSenderBot:
         self.dp.message.register(self.goto_page_handler, Command("goto"))
         self.dp.message.register(self.book_command, Command("book"))
         self.dp.message.register(self.upload_command, Command("upload"))
-        
+
         # Upload PDF handlers
-        self.dp.message.register(
-            self.process_pdf_upload,
-            UploadPDF.waiting_for_file
-        )
+        self.dp.message.register(self.process_pdf_upload, UploadPDF.waiting_for_file)
 
     async def start_handler(self, message: types.Message):
         """Handle /start command"""
         if message.from_user is None:
             return
-        
+
         user_id = message.from_user.id
         username = message.from_user.username
 
@@ -106,22 +104,24 @@ class PDFSenderBot:
     async def status_handler(self, message: types.Message):
         """Handle /status command"""
         user_id = message.from_user.id
-        
+
         # Check if user exists
         if not self.db.get_user(user_id):
             await message.answer("You need to /start the bot first!")
             return
-            
+
         # Check if user has a PDF
         pdf_path = self.db.get_pdf_path(user_id)
         if not pdf_path or not os.path.exists(pdf_path):
-            await message.answer("You need to upload a PDF book first! Use /upload command.")
+            await message.answer(
+                "You need to upload a PDF book first! Use /upload command."
+            )
             return
 
         current_page = self.db.get_current_page(user_id)
         total_pages = self.db.get_total_pages(user_id)
         progress = (current_page / total_pages) * 100 if total_pages > 0 else 0
-        
+
         # Get last sent time
         last_sent = self.db.get_last_sent(user_id)
         if last_sent:
@@ -149,20 +149,22 @@ class PDFSenderBot:
         """Handle /next command - send next 3 pages"""
         if message.from_user is None:
             return
-        
+
         user_id = message.from_user.id
-            
+
         # Check if user exists
         if not self.db.get_user(user_id):
             await message.answer("You need to /start the bot first!")
             return
-            
+
         # Check if user has a PDF
         pdf_path = self.db.get_pdf_path(user_id)
         if not pdf_path or not os.path.exists(pdf_path):
-            await message.answer("You need to upload a PDF book first! Use /upload command.")
+            await message.answer(
+                "You need to upload a PDF book first! Use /upload command."
+            )
             return
-            
+
         try:
             current_page = self.db.get_current_page(user_id)
             await self.send_pages_to_user(user_id, current_page)
@@ -183,36 +185,42 @@ class PDFSenderBot:
         """Handle /current command - send current page"""
         if message.from_user is None:
             return
-        
+
         user_id = message.from_user.id
-            
+
         # Check if user exists
         if not self.db.get_user(user_id):
             await message.answer("You need to /start the bot first!")
             return
-            
+
         # Check if user has a PDF
         pdf_path = self.db.get_pdf_path(user_id)
         if not pdf_path or not os.path.exists(pdf_path):
-            await message.answer("You need to upload a PDF book first! Use /upload command.")
+            await message.answer(
+                "You need to upload a PDF book first! Use /upload command."
+            )
             return
-            
+
         try:
             current_page = self.db.get_current_page(user_id)
             # Override pages_per_send to just get one page
-            pdf_reader = PDFReader(user_id=user_id, output_dir=Config.OUTPUT_DIR, db=self.db)
+            pdf_reader = PDFReader(
+                user_id=user_id, output_dir=Config.OUTPUT_DIR, db=self.db
+            )
             image_paths = pdf_reader.extract_pages_as_images(current_page, 1)
-            
+
             if image_paths:
                 photo = FSInputFile(image_paths[0])
                 await self.bot.send_photo(
-                    chat_id=user_id, 
-                    photo=photo, 
-                    caption=f"📖 Current page: {current_page}"
+                    chat_id=user_id,
+                    photo=photo,
+                    caption=f"📖 Current page: {current_page}",
                 )
                 pdf_reader.cleanup_images()
             else:
-                await message.answer(f"📖 Current page: {current_page} (could not render image)")
+                await message.answer(
+                    f"📖 Current page: {current_page} (could not render image)"
+                )
 
         except Exception as e:
             logger.error(f"Error in current_page_handler: {e}")
@@ -224,20 +232,22 @@ class PDFSenderBot:
         """Handle /goto command - jump to specific page"""
         if message.from_user is None or message.text is None:
             return
-        
+
         user_id = message.from_user.id
-            
+
         # Check if user exists
         if not self.db.get_user(user_id):
             await message.answer("You need to /start the bot first!")
             return
-            
+
         # Check if user has a PDF
         pdf_path = self.db.get_pdf_path(user_id)
         if not pdf_path or not os.path.exists(pdf_path):
-            await message.answer("You need to upload a PDF book first! Use /upload command.")
+            await message.answer(
+                "You need to upload a PDF book first! Use /upload command."
+            )
             return
-            
+
         try:
             # Extract page number from command
             args = message.text.split()
@@ -261,19 +271,23 @@ class PDFSenderBot:
 
             # Send the target page
             # Override pages_per_send to just get one page
-            pdf_reader = PDFReader(user_id=user_id, output_dir=Config.OUTPUT_DIR, db=self.db)
+            pdf_reader = PDFReader(
+                user_id=user_id, output_dir=Config.OUTPUT_DIR, db=self.db
+            )
             image_paths = pdf_reader.extract_pages_as_images(target_page, 1)
-            
+
             if image_paths:
                 photo = FSInputFile(image_paths[0])
                 await self.bot.send_photo(
-                    chat_id=user_id, 
-                    photo=photo, 
-                    caption=f"📖 Jumped to page {target_page}"
+                    chat_id=user_id,
+                    photo=photo,
+                    caption=f"📖 Jumped to page {target_page}",
                 )
                 pdf_reader.cleanup_images()
             else:
-                await message.answer(f"📖 Jumped to page {target_page} (could not render image)")
+                await message.answer(
+                    f"📖 Jumped to page {target_page} (could not render image)"
+                )
 
         except Exception as e:
             logger.error(f"Error in goto_page_handler: {e}")
@@ -283,8 +297,10 @@ class PDFSenderBot:
         """Send PDF pages to a user"""
         try:
             # Create a PDFReader instance for this user
-            pdf_reader = PDFReader(user_id=user_id, output_dir=Config.OUTPUT_DIR, db=self.db)
-            
+            pdf_reader = PDFReader(
+                user_id=user_id, output_dir=Config.OUTPUT_DIR, db=self.db
+            )
+
             # Extract pages as images
             pages_per_send = Config.PAGES_PER_SEND
             image_paths = pdf_reader.extract_pages_as_images(
@@ -298,8 +314,7 @@ class PDFSenderBot:
             # Send a message with the page number
             total_pages = self.db.get_total_pages(user_id)
             await self.bot.send_message(
-                user_id,
-                f"📖 Page {page_number} of {total_pages} 📖"
+                user_id, f"📖 Page {page_number} of {total_pages} 📖"
             )
 
             # Send each page as a photo
@@ -313,7 +328,7 @@ class PDFSenderBot:
 
             # Update last sent time
             self.db.update_last_sent(user_id)
-            
+
             # Cleanup old images
             pdf_reader.cleanup_images()
 
@@ -334,30 +349,36 @@ class PDFSenderBot:
 
             # Current time
             now = datetime.now()
-            
+
             # Check each user
             for user in users:
                 try:
                     user_id = user["id"]
-                    
+
                     # Check if user has a PDF
                     pdf_path = self.db.get_pdf_path(user_id)
                     if not pdf_path or not os.path.exists(pdf_path):
                         logger.info(f"User {user_id} has no PDF, skipping")
                         continue
-                    
+
                     # Get last sent time
                     last_sent = self.db.get_last_sent(user_id)
-                    
+
                     # If never sent or interval has passed
-                    if not last_sent or (now - last_sent).total_seconds() >= Config.INTERVAL_HOURS * 3600:
+                    if (
+                        not last_sent
+                        or (now - last_sent).total_seconds()
+                        >= Config.INTERVAL_HOURS * 3600
+                    ):
                         # Get current page
                         current_page = self.db.get_current_page(user_id)
-                        
+
                         # Increment page for next time
                         next_page = self.db.increment_page(user_id)
-                        logger.info(f"User {user_id}: Incremented page from {current_page} to {next_page}")
-                        
+                        logger.info(
+                            f"User {user_id}: Incremented page from {current_page} to {next_page}"
+                        )
+
                         # Send pages
                         await self.send_pages_to_user(user_id, current_page)
                         logger.info(f"Sent scheduled pages to user {user_id}")
@@ -366,7 +387,7 @@ class PDFSenderBot:
                         next_send = last_sent + timedelta(hours=Config.INTERVAL_HOURS)
                         time_until = next_send - now
                         logger.info(f"User {user_id}: Next send in {time_until}")
-                        
+
                 except Exception as e:
                     logger.error(f"Error processing user {user_id}: {e}")
 
@@ -376,54 +397,59 @@ class PDFSenderBot:
     async def upload_command(self, message: types.Message, state: FSMContext):
         """Handle /upload command"""
         user_id = message.from_user.id
-        
+
         # Check if user exists
         if not self.db.get_user(user_id):
             await message.reply("You need to /start the bot first!")
             return
-            
+
         await message.reply(
             "Please send me your PDF file. I'll use it for your reading."
         )
-        
+
         # Set state to waiting for file
         await state.set_state(UploadPDF.waiting_for_file)
-        
+
     async def process_pdf_upload(self, message: types.Message, state: FSMContext):
         """Process uploaded PDF file"""
         user_id = message.from_user.id
-        
+
         try:
             # Check if message contains a document
             if not message.document:
                 await message.reply("Please send a PDF file.")
                 return
-                
+
             # Check if the file is a PDF
-            if not message.document.mime_type == 'application/pdf':
+            if not message.document.mime_type == "application/pdf":
                 await message.reply("Please send a PDF file.")
                 return
-                
+
             # Download the file
             file_id = message.document.file_id
             file_info = await self.bot.get_file(file_id)
             file_path = file_info.file_path
-            
+
             # Create user directory if it doesn't exist
             user_upload_dir = os.path.join(Config.UPLOAD_DIR, str(user_id))
             os.makedirs(user_upload_dir, exist_ok=True)
-            
+
             # Generate a filename based on the original filename or a default
-            filename = message.document.file_name or f"book_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            filename = (
+                message.document.file_name
+                or f"book_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            )
             local_file_path = os.path.join(user_upload_dir, filename)
-            
+
             # Download the file
             await self.bot.download_file(file_path, local_file_path)
-            
+
             # Create a PDFReader instance to validate and set the PDF
-            pdf_reader = PDFReader(user_id=user_id, output_dir=Config.OUTPUT_DIR, db=self.db)
+            pdf_reader = PDFReader(
+                user_id=user_id, output_dir=Config.OUTPUT_DIR, db=self.db
+            )
             success = pdf_reader.set_pdf_for_user(user_id, local_file_path)
-            
+
             if success:
                 total_pages = self.db.get_total_pages(user_id)
                 await message.reply(
@@ -433,38 +459,44 @@ class PDFSenderBot:
                     f"Your reading starts from page 1. Use /next to get the first page."
                 )
             else:
-                await message.reply("❌ There was a problem with your PDF file. Please try another one.")
+                await message.reply(
+                    "❌ There was a problem with your PDF file. Please try another one."
+                )
                 # Clean up the file if there was an error
                 if os.path.exists(local_file_path):
                     os.remove(local_file_path)
-                    
+
         except Exception as e:
             logger.error(f"Error processing PDF upload: {e}")
-            await message.reply("❌ An error occurred while processing your PDF. Please try again.")
+            await message.reply(
+                "❌ An error occurred while processing your PDF. Please try again."
+            )
         finally:
             # Reset the state
             await state.clear()
-            
+
     async def book_command(self, message: types.Message):
         """Handle /book command to show current book info"""
         user_id = message.from_user.id
-        
+
         # Check if user exists
         if not self.db.get_user(user_id):
             await message.reply("You need to /start the bot first!")
             return
-            
+
         # Check if user has a PDF
         pdf_path = self.db.get_pdf_path(user_id)
         if not pdf_path or not os.path.exists(pdf_path):
-            await message.reply("You haven't uploaded a book yet! Use /upload command to add a book.")
+            await message.reply(
+                "You haven't uploaded a book yet! Use /upload command to add a book."
+            )
             return
-            
+
         # Get book info
         filename = os.path.basename(pdf_path)
         current_page = self.db.get_current_page(user_id)
         total_pages = self.db.get_total_pages(user_id)
-        
+
         # Format book info
         book_info = (
             f"📚 *Your Current Book* 📚\n\n"
@@ -473,9 +505,9 @@ class PDFSenderBot:
             f"Progress: {current_page/total_pages*100:.1f}%\n\n"
             f"Use /upload to change your book."
         )
-        
+
         await message.reply(book_info)
-    
+
     async def start_polling(self):
         """Start the bot"""
         try:

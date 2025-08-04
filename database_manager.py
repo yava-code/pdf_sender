@@ -37,11 +37,11 @@ class DatabaseManager:
         """Get user data from database"""
         data = self.load_data()
         users = data.get("users", [])
-        
+
         for user in users:
             if user["id"] == user_id:
                 return user
-                
+
         # If user not found, create default user data
         return {
             "id": user_id,
@@ -50,9 +50,9 @@ class DatabaseManager:
             "current_page": 1,
             "total_pages": 0,
             "pdf_path": Config.PDF_PATH,  # Default PDF path
-            "last_sent": None
+            "last_sent": None,
         }
-    
+
     def get_current_page(self, user_id: int) -> int:
         """Get current page number for a user"""
         user_data = self.get_user_data(user_id)
@@ -62,13 +62,13 @@ class DatabaseManager:
         """Set current page number for a user"""
         data = self.load_data()
         users = data.get("users", [])
-        
+
         for user in users:
             if user["id"] == user_id:
                 user["current_page"] = page
                 self.save_data(data)
                 return
-        
+
         # If user not found, add them with the specified page
         self.add_user(user_id, None, pdf_path=Config.PDF_PATH, current_page=page)
 
@@ -88,18 +88,24 @@ class DatabaseManager:
         """Set total pages count for a user's PDF"""
         data = self.load_data()
         users = data.get("users", [])
-        
+
         for user in users:
             if user["id"] == user_id:
                 user["total_pages"] = total
                 self.save_data(data)
                 return
-        
+
         # If user not found, add them with the specified total pages
         self.add_user(user_id, None, pdf_path=Config.PDF_PATH, total_pages=total)
 
-    def add_user(self, user_id: int, username: Optional[str] = None, pdf_path: Optional[str] = None, 
-               current_page: int = 1, total_pages: int = 0):
+    def add_user(
+        self,
+        user_id: int,
+        username: Optional[str] = None,
+        pdf_path: Optional[str] = None,
+        current_page: int = 1,
+        total_pages: int = 0,
+    ):
         """Add user to database or update existing user"""
         data = self.load_data()
         users = data.get("users", [])
@@ -126,7 +132,7 @@ class DatabaseManager:
                 "current_page": current_page,
                 "total_pages": total_pages,
                 "pdf_path": pdf_path or Config.PDF_PATH,
-                "last_sent": None
+                "last_sent": None,
             }
         )
 
@@ -137,57 +143,57 @@ class DatabaseManager:
         """Get all users"""
         data = self.load_data()
         return data.get("users", [])
-    
+
     def get_user(self, user_id: int) -> Optional[Dict[str, Any]]:
         """Get a specific user by ID, returns None if not found"""
         data = self.load_data()
         users = data.get("users", [])
-        
+
         for user in users:
             if user["id"] == user_id:
                 return user
-        
+
         return None
-        
+
     def set_pdf_path(self, user_id: int, pdf_path: str):
         """Set PDF path for a user"""
         data = self.load_data()
         users = data.get("users", [])
-        
+
         for user in users:
             if user["id"] == user_id:
                 user["pdf_path"] = pdf_path
                 self.save_data(data)
                 return
-        
+
         # If user not found, add them with the specified PDF path
         self.add_user(user_id, None, pdf_path=pdf_path)
-    
+
     def get_pdf_path(self, user_id: int) -> str:
         """Get PDF path for a user"""
         user_data = self.get_user_data(user_id)
         return user_data.get("pdf_path", Config.PDF_PATH)
-    
+
     def update_last_sent(self, user_id: int):
         """Update last sent timestamp for a user"""
         data = self.load_data()
         users = data.get("users", [])
-        
+
         for user in users:
             if user["id"] == user_id:
                 user["last_sent"] = datetime.now().isoformat()
                 self.save_data(data)
                 return
-    
+
     def get_last_sent(self, user_id: int) -> Optional[datetime]:
         """Get last sent timestamp for a user"""
         user_data = self.get_user_data(user_id)
         last_sent = user_data.get("last_sent")
-        
+
         if last_sent:
             try:
                 return datetime.fromisoformat(last_sent)
             except (ValueError, TypeError):
                 return None
-        
+
         return None

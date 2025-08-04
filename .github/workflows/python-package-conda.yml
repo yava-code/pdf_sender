@@ -34,12 +34,14 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+        # Install additional testing dependencies if needed
+        pip install pytest-mock
     
     - name: Create test PDF
       run: |
         # Create a simple test PDF for testing
         python -c "
-        import fitz
+        import fitz  # PyMuPDF
         doc = fitz.open()
         page = doc.new_page()
         text = page.insert_text((72, 72), 'Test PDF Page 1')
@@ -63,8 +65,15 @@ jobs:
     - name: Test with pytest
       env:
         BOT_TOKEN: "test_token_for_ci"
+        DATABASE_PATH: "test_database.json"
+        PDF_PATH: "book.pdf"
+        INTERVAL_HOURS: "6"
+        UPLOAD_DIR: "test_uploads"
       run: |
-        pytest --cov=. --cov-report=xml --cov-report=term-missing
+        # Create necessary directories
+        mkdir -p test_uploads
+        # Run tests with coverage
+        pytest --cov=. --cov-report=xml --cov-report=term-missing -v
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3

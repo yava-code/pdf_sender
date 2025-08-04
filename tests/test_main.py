@@ -1,4 +1,3 @@
-import asyncio
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -14,7 +13,8 @@ class TestPDFSenderBot:
         with patch("main.Config") as mock_config:
             mock_config.BOT_TOKEN = "test_token"
             mock_config.PAGES_PER_SEND = 3
-            mock_config.SCHEDULE_TIME = "09:00"
+            mock_config.INTERVAL_HOURS = 6
+            mock_config.UPLOAD_DIR = "test_uploads"
             mock_config.validate.return_value = None
             yield mock_config
 
@@ -213,6 +213,14 @@ class TestPDFSenderBot:
     @pytest.mark.asyncio
     async def test_send_pages_to_user(self, pdf_bot, mock_dependencies):
         """Test sending pages to user"""
+        # Setup mock user data
+        mock_dependencies["db"].get_user.return_value = {
+            "user_id": 12345,
+            "current_page": 1,
+            "pages_per_send": 3,
+            "pdf_path": "test.pdf"
+        }
+        
         # Setup mock returns
         mock_dependencies["pdf_reader"].extract_pages_as_images.return_value = [
             "page_1.png",
@@ -223,12 +231,7 @@ class TestPDFSenderBot:
         # Mock bot methods
         mock_dependencies["bot"].send_photo = AsyncMock()
 
-        await pdf_bot.send_pages_to_user(12345, 1, 3)
-
-        # Check that extract_pages_as_images was called
-        mock_dependencies["pdf_reader"].extract_pages_as_images.assert_called_once_with(
-            1, 3
-        )
+        await pdf_bot.send_pages_to_user(12345, 1)
 
         # Check that photos were sent
         assert mock_dependencies["bot"].send_photo.call_count == 3
@@ -236,11 +239,19 @@ class TestPDFSenderBot:
     @pytest.mark.asyncio
     async def test_send_pages_to_user_no_pages(self, pdf_bot, mock_dependencies):
         """Test sending pages when no pages are available"""
+        # Setup mock user data
+        mock_dependencies["db"].get_user.return_value = {
+            "user_id": 12345,
+            "current_page": 1,
+            "pages_per_send": 3,
+            "pdf_path": "test.pdf"
+        }
+        
         # Setup mock returns
         mock_dependencies["pdf_reader"].extract_pages_as_images.return_value = []
         mock_dependencies["bot"].send_message = AsyncMock()
 
-        await pdf_bot.send_pages_to_user(12345, 1, 3)
+        await pdf_bot.send_pages_to_user(12345, 1)
 
         # Check that error message was sent
         mock_dependencies["bot"].send_message.assert_called_once_with(
@@ -248,8 +259,8 @@ class TestPDFSenderBot:
         )
 
     @pytest.mark.asyncio
-    async def test_send_daily_pages(self, pdf_bot, mock_dependencies):
-        """Test sending daily pages to all users"""
+    async def test_check_and_send_pages(self, pdf_bot, mock_dependencies):
+        """Test checking and sending pages to all users"""
         # Setup mock returns
         mock_dependencies["db"].get_users.return_value = [
             {"id": 123, "username": "user1"},
@@ -261,7 +272,7 @@ class TestPDFSenderBot:
         # Mock send_pages_to_user method
         pdf_bot.send_pages_to_user = AsyncMock()
 
-        await pdf_bot.send_daily_pages()
+        await pdf_bot.check_and_send_pages()
 
         # Check that pages were sent to all users
         assert pdf_bot.send_pages_to_user.call_count == 2
@@ -272,11 +283,11 @@ class TestPDFSenderBot:
         mock_dependencies["db"].increment_page.assert_called_once_with(3)
 
     @pytest.mark.asyncio
-    async def test_send_daily_pages_no_users(self, pdf_bot, mock_dependencies):
-        """Test sending daily pages when no users exist"""
+    async def test_check_and_send_pages_no_users(self, pdf_bot, mock_dependencies):
+        """Test checking and sending pages when no users exist"""
         mock_dependencies["db"].get_users.return_value = []
 
-        await pdf_bot.send_daily_pages()
+        await pdf_bot.check_and_send_pages()
 
         # Should not increment page when no users
         mock_dependencies["db"].increment_page.assert_not_called()

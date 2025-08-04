@@ -1,6 +1,6 @@
-import os
 import logging
-from typing import List, Optional, Tuple
+import os
+from typing import List, Optional
 
 import fitz as pymupdf
 
@@ -11,10 +11,16 @@ logger = logging.getLogger(__name__)
 
 
 class PDFReader:
-    def __init__(self, user_id: Optional[int] = None, pdf_path: Optional[str] = None, output_dir: Optional[str] = None, db: Optional[DatabaseManager] = None):
+    def __init__(
+        self,
+        user_id: Optional[int] = None,
+        pdf_path: Optional[str] = None,
+        output_dir: Optional[str] = None,
+        db: Optional[DatabaseManager] = None,
+    ):
         self.db = db or DatabaseManager(Config.DATABASE_PATH)
         self.user_id = user_id
-        
+
         # If user_id is provided, get PDF path from database
         if user_id is not None:
             self.pdf_path = pdf_path or self.db.get_pdf_path(user_id)
@@ -22,13 +28,15 @@ class PDFReader:
                 logger.warning(f"No valid PDF path found for user {user_id}")
         else:
             self.pdf_path = pdf_path or Config.PDF_PATH
-            
+
         # Create user-specific output directory if user_id is provided
         if user_id is not None:
-            self.output_dir = output_dir or os.path.join(Config.OUTPUT_DIR, str(user_id))
+            self.output_dir = output_dir or os.path.join(
+                Config.OUTPUT_DIR, str(user_id)
+            )
         else:
             self.output_dir = output_dir or Config.OUTPUT_DIR
-            
+
         self._ensure_output_dir()
 
     def _ensure_output_dir(self):
@@ -40,7 +48,7 @@ class PDFReader:
         if not self.pdf_path or not os.path.exists(self.pdf_path):
             logger.error(f"PDF file not found: {self.pdf_path}")
             return 0
-            
+
         try:
             doc = pymupdf.open(self.pdf_path)
             total_pages = len(doc)
@@ -59,7 +67,7 @@ class PDFReader:
         if not self.pdf_path or not os.path.exists(self.pdf_path):
             logger.error(f"PDF file not found: {self.pdf_path}")
             return None
-            
+
         try:
             doc = pymupdf.open(self.pdf_path)
 
@@ -86,7 +94,7 @@ class PDFReader:
         """Extract multiple pages as images and return list of file paths"""
         image_paths = []
         total_pages = self.get_total_pages()
-        
+
         if total_pages == 0:
             logger.warning("Cannot extract pages: PDF has 0 pages or is invalid")
             return []
@@ -109,7 +117,7 @@ class PDFReader:
         if not self.pdf_path or not os.path.exists(self.pdf_path):
             logger.error(f"PDF file not found: {self.pdf_path}")
             return None
-            
+
         try:
             doc = pymupdf.open(self.pdf_path)
 
@@ -162,7 +170,7 @@ class PDFReader:
                 except OSError as e:
                     logger.error(f"Error removing file {filepath}: {e}")
                     pass
-                    
+
     def set_pdf_for_user(self, user_id: int, pdf_path: str) -> bool:
         """Set a new PDF file for a user and update the database"""
         try:
@@ -170,25 +178,25 @@ class PDFReader:
             if not os.path.exists(pdf_path):
                 logger.error(f"PDF file does not exist: {pdf_path}")
                 return False
-                
+
             # Try to open the PDF to verify it's valid
             doc = pymupdf.open(pdf_path)
             total_pages = len(doc)
             doc.close()
-            
+
             if total_pages == 0:
                 logger.error(f"PDF file has 0 pages: {pdf_path}")
                 return False
-            
+
             # Update the database with the new PDF path and total pages
             self.db.set_pdf_path(user_id, pdf_path)
             self.db.set_total_pages(user_id, total_pages)
             self.db.set_current_page(user_id, 1)  # Reset to page 1
-            
+
             # Update instance variables if this reader is for the same user
             if self.user_id == user_id:
                 self.pdf_path = pdf_path
-                
+
             logger.info(f"Set PDF for user {user_id}: {pdf_path} ({total_pages} pages)")
             return True
         except Exception as e:
