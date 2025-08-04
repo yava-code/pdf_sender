@@ -1,6 +1,12 @@
 {
-  "current_page": 1,
-  "total_pages": 0,
+  "current_page": 19,
+  "total_pages": 1060,
   "last_sent": null,
-  "users": []
+  "users": [
+    {
+      "id": 1948669478,
+      "username": "syndromglavnogogeroya",
+      "joined_at": null
+    }
+  ]
 }

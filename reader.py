@@ -1,9 +1,11 @@
 # обработка PDF
-import pymupdf
 import os
+
+import pymupdf
 from dotenv import load_dotenv
+
 load_dotenv()
-pages = int(os.getenv('AMOUNT'))
+pages = int(os.getenv("AMOUNT", "1"))
 
 doc = pymupdf.open("book.pdf")
 
