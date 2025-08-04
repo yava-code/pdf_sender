@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 from datetime import datetime, timedelta
+from typing import Optional
 
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
@@ -105,7 +106,7 @@ class PDFSenderBot:
         """Handle /status command"""
         if message.from_user is None:
             return
-        
+
         user_id = message.from_user.id
 
         # Check if user exists
@@ -176,7 +177,8 @@ class PDFSenderBot:
             new_page = self.db.increment_page(user_id)
 
             await message.answer(
-                f"📖 Sent pages {current_page}-{current_page + Config.PAGES_PER_SEND - 1}\n"
+                f"📖 Sent pages {current_page}-"
+                f"{current_page + Config.PAGES_PER_SEND - 1}\n"
                 f"📍 Current page is now: {new_page}"
             )
 
@@ -231,6 +233,37 @@ class PDFSenderBot:
                 "❌ Error sending current page. Please try again later."
             )
 
+    def _parse_page_number(self, message_text: str) -> Optional[int]:
+        """Parse page number from goto command text"""
+        args = message_text.split()
+        if len(args) != 2:
+            return None
+
+        try:
+            return int(args[1])
+        except ValueError:
+            return None
+
+    async def _send_single_page(self, user_id: int, page_number: int):
+        """Send a single page to user"""
+        pdf_reader = PDFReader(
+            user_id=user_id, output_dir=Config.OUTPUT_DIR, db=self.db
+        )
+        image_paths = pdf_reader.extract_pages_as_images(page_number, 1)
+
+        if image_paths:
+            photo = FSInputFile(image_paths[0])
+            await self.bot.send_photo(
+                chat_id=user_id,
+                photo=photo,
+                caption=f"📖 Jumped to page {page_number}",
+            )
+            pdf_reader.cleanup_images()
+        else:
+            await self.bot.send_message(
+                user_id, f"📖 Jumped to page {page_number} (could not render image)"
+            )
+
     async def goto_page_handler(self, message: types.Message):
         """Handle /goto command - jump to specific page"""
         if message.from_user is None or message.text is None:
@@ -253,15 +286,9 @@ class PDFSenderBot:
 
         try:
             # Extract page number from command
-            args = message.text.split()
-            if len(args) != 2:
+            target_page = self._parse_page_number(message.text)
+            if target_page is None:
                 await message.answer("❌ Usage: /goto <page_number>")
-                return
-
-            try:
-                target_page = int(args[1])
-            except ValueError:
-                await message.answer("❌ Please provide a valid page number.")
                 return
 
             total_pages = self.db.get_total_pages(user_id)
@@ -273,24 +300,7 @@ class PDFSenderBot:
             self.db.set_current_page(user_id, target_page)
 
             # Send the target page
-            # Override pages_per_send to just get one page
-            pdf_reader = PDFReader(
-                user_id=user_id, output_dir=Config.OUTPUT_DIR, db=self.db
-            )
-            image_paths = pdf_reader.extract_pages_as_images(target_page, 1)
-
-            if image_paths:
-                photo = FSInputFile(image_paths[0])
-                await self.bot.send_photo(
-                    chat_id=user_id,
-                    photo=photo,
-                    caption=f"📖 Jumped to page {target_page}",
-                )
-                pdf_reader.cleanup_images()
-            else:
-                await message.answer(
-                    f"📖 Jumped to page {target_page} (could not render image)"
-                )
+            await self._send_single_page(user_id, target_page)
 
         except Exception as e:
             logger.error(f"Error in goto_page_handler: {e}")
@@ -379,7 +389,8 @@ class PDFSenderBot:
                         # Increment page for next time
                         next_page = self.db.increment_page(user_id)
                         logger.info(
-                            f"User {user_id}: Incremented page from {current_page} to {next_page}"
+                            f"User {user_id}: Incremented page from "
+                            f"{current_page} to {next_page}"
                         )
 
                         # Send pages
@@ -401,7 +412,7 @@ class PDFSenderBot:
         """Handle /upload command"""
         if message.from_user is None:
             return
-        
+
         user_id = message.from_user.id
 
         # Check if user exists
@@ -420,7 +431,7 @@ class PDFSenderBot:
         """Process uploaded PDF file"""
         if message.from_user is None:
             return
-        
+
         user_id = message.from_user.id
 
         try:
@@ -488,7 +499,7 @@ class PDFSenderBot:
         """Handle /book command to show current book info"""
         if message.from_user is None:
             return
-        
+
         user_id = message.from_user.id
 
         # Check if user exists

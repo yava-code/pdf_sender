@@ -218,9 +218,9 @@ class TestPDFSenderBot:
             "user_id": 12345,
             "current_page": 1,
             "pages_per_send": 3,
-            "pdf_path": "test.pdf"
+            "pdf_path": "test.pdf",
         }
-        
+
         # Setup mock returns
         mock_dependencies["pdf_reader"].extract_pages_as_images.return_value = [
             "page_1.png",
@@ -244,9 +244,9 @@ class TestPDFSenderBot:
             "user_id": 12345,
             "current_page": 1,
             "pages_per_send": 3,
-            "pdf_path": "test.pdf"
+            "pdf_path": "test.pdf",
         }
-        
+
         # Setup mock returns
         mock_dependencies["pdf_reader"].extract_pages_as_images.return_value = []
         mock_dependencies["bot"].send_message = AsyncMock()

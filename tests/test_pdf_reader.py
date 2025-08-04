@@ -37,9 +37,14 @@ class TestPDFReader:
             mock_db_class.return_value = mock_db
             # Mock the database to return the mock PDF path
             mock_db.get_pdf_path.return_value = mock_pdf_file
-            # Setup a user_id for the reader  
+            # Setup a user_id for the reader
             user_id = 123
-            return PDFReader(user_id=user_id, pdf_path=mock_pdf_file, output_dir=temp_output_dir, db=mock_db)
+            return PDFReader(
+                user_id=user_id,
+                pdf_path=mock_pdf_file,
+                output_dir=temp_output_dir,
+                db=mock_db,
+            )
 
     @patch("pdf_reader.pymupdf.open")
     def test_get_total_pages(self, mock_pymupdf_open, pdf_reader):
@@ -216,7 +221,12 @@ class TestPDFReader:
             with patch("pdf_reader.DatabaseManager") as mock_db_class:
                 mock_db = Mock()
                 mock_db_class.return_value = mock_db
-                pdf_reader = PDFReader(user_id=123, pdf_path=mock_pdf_file, output_dir=output_dir, db=mock_db)
+                PDFReader(
+                    user_id=123,
+                    pdf_path=mock_pdf_file,
+                    output_dir=output_dir,
+                    db=mock_db,
+                )
 
             # Directory should now exist
             assert os.path.exists(output_dir)

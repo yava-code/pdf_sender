@@ -41,7 +41,14 @@ class TestDatabaseManager:
     def test_save_data(self, db_manager):
         """Test saving data to database"""
         test_data = {
-            "users": [{"id": 123, "username": "test_user", "current_page": 5, "total_pages": 200}],
+            "users": [
+                {
+                    "id": 123,
+                    "username": "test_user",
+                    "current_page": 5,
+                    "total_pages": 200,
+                }
+            ],
         }
 
         db_manager.save_data(test_data)
