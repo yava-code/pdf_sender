@@ -36,17 +36,19 @@ class TestDatabaseManager:
         """Test loading data from database"""
         data = db_manager.load_data()
         assert isinstance(data, dict)
-        assert "current_page" in data
-        assert "total_pages" in data
         assert "users" in data
 
     def test_save_data(self, db_manager):
         """Test saving data to database"""
         test_data = {
-            "current_page": 5,
-            "total_pages": 200,
-            "last_sent": "2024-01-01",
-            "users": [{"id": 123, "username": "test_user"}],
+            "users": [
+                {
+                    "id": 123,
+                    "username": "test_user",
+                    "current_page": 5,
+                    "total_pages": 200,
+                }
+            ],
         }
 
         db_manager.save_data(test_data)
@@ -55,28 +57,32 @@ class TestDatabaseManager:
         assert loaded_data == test_data
 
     def test_get_current_page(self, db_manager):
-        """Test getting current page"""
-        page = db_manager.get_current_page()
+        """Test getting current page for a user"""
+        user_id = 123
+        page = db_manager.get_current_page(user_id)
         assert isinstance(page, int)
         assert page >= 1
 
     def test_set_current_page(self, db_manager):
-        """Test setting current page"""
-        db_manager.set_current_page(10)
-        assert db_manager.get_current_page() == 10
+        """Test setting current page for a user"""
+        user_id = 123
+        db_manager.set_current_page(user_id, 10)
+        assert db_manager.get_current_page(user_id) == 10
 
     def test_increment_page(self, db_manager):
-        """Test incrementing current page"""
-        initial_page = db_manager.get_current_page()
-        new_page = db_manager.increment_page(3)
+        """Test incrementing current page for a user"""
+        user_id = 123
+        initial_page = db_manager.get_current_page(user_id)
+        new_page = db_manager.increment_page(user_id, 3)
 
         assert new_page == initial_page + 3
-        assert db_manager.get_current_page() == new_page
+        assert db_manager.get_current_page(user_id) == new_page
 
     def test_get_set_total_pages(self, db_manager):
-        """Test getting and setting total pages"""
-        db_manager.set_total_pages(150)
-        assert db_manager.get_total_pages() == 150
+        """Test getting and setting total pages for a user"""
+        user_id = 123
+        db_manager.set_total_pages(user_id, 150)
+        assert db_manager.get_total_pages(user_id) == 150
 
     def test_add_user(self, db_manager):
         """Test adding a user"""
@@ -122,7 +128,4 @@ class TestDatabaseManager:
 
             # Should have initial data structure
             data = db_manager.load_data()
-            assert "current_page" in data
-            assert "total_pages" in data
             assert "users" in data
-            assert data["current_page"] == 1
