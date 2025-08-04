@@ -15,7 +15,7 @@ class PDFScheduler:
         self._setup_schedule()
 
     def _setup_schedule(self):
-        """Setup the interval schedule for sending pages"""
+        """Setup the interval schedule for sending pages and cleanup"""
         try:
             # Get interval in hours from config
             interval_hours = Config.INTERVAL_HOURS
@@ -29,7 +29,17 @@ class PDFScheduler:
                 replace_existing=True,
             )
 
+            # Add daily cleanup job (runs once per day)
+            self.scheduler.add_job(
+                self._cleanup_job,
+                IntervalTrigger(hours=24),
+                id="daily_cleanup",
+                name="Daily Cleanup Job",
+                replace_existing=True,
+            )
+
             logger.info(f"Scheduled pages to send every {interval_hours} hours")
+            logger.info("Scheduled daily cleanup job")
 
         except Exception as e:
             logger.error(f"Error setting up schedule: {e}")
@@ -50,6 +60,15 @@ class PDFScheduler:
             logger.info("Interval pages job completed")
         except Exception as e:
             logger.error(f"Error in interval pages job: {e}")
+
+    async def _cleanup_job(self):
+        """Job function to perform daily cleanup"""
+        try:
+            logger.info("Starting daily cleanup job")
+            await self.bot.cleanup_old_files()
+            logger.info("Daily cleanup job completed")
+        except Exception as e:
+            logger.error(f"Error in cleanup job: {e}")
 
     def start(self):
         """Start the scheduler"""

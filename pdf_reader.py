@@ -79,10 +79,15 @@ class PDFReader:
             page = doc.load_page(page_number - 1)  # pymupdf uses 0-based indexing
             pix = page.get_pixmap(dpi=dpi)
 
-            output_path = os.path.join(self.output_dir, f"page_{page_number}.png")
-            pix.save(output_path)
+            # Use JPEG format with configurable quality for smaller file sizes
+            timestamp = int(page_number)  # Use page number as identifier
+            output_path = os.path.join(self.output_dir, f"page_{timestamp}.jpg")
+
+            # Save as JPEG with quality setting
+            pix.save(output_path, jpg_quality=Config.IMAGE_QUALITY)
 
             doc.close()
+            logger.debug(f"Extracted page {page_number} to {output_path}")
             return output_path
         except Exception as e:
             logger.error(f"Error extracting page {page_number}: {e}")
@@ -147,14 +152,22 @@ class PDFReader:
         if not os.path.exists(self.output_dir):
             return
 
-        # Get all page image files
+        # Get all page image files (both PNG and JPEG)
         image_files = []
         for filename in os.listdir(self.output_dir):
-            if filename.startswith("page_") and filename.endswith(".png"):
+            if filename.startswith("page_") and (
+                filename.endswith(".png") or filename.endswith(".jpg")
+            ):
                 filepath = os.path.join(self.output_dir, filename)
                 # Extract page number from filename
                 try:
-                    page_num = int(filename.replace("page_", "").replace(".png", ""))
+                    # Remove extension and "page_" prefix
+                    name_part = filename.replace("page_", "")
+                    for ext in [".png", ".jpg"]:
+                        if name_part.endswith(ext):
+                            name_part = name_part.replace(ext, "")
+                            break
+                    page_num = int(name_part)
                     image_files.append((page_num, filepath))
                 except ValueError:
                     continue
