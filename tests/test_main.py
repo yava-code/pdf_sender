@@ -92,10 +92,15 @@ class TestPDFSenderBot:
     async def test_status_handler(self, pdf_bot, mock_message, mock_dependencies):
         """Test /status command handler"""
         # Setup mock returns
+        mock_dependencies["db"].get_user.return_value = {"id": 12345, "username": "test_user"}
+        mock_dependencies["db"].get_pdf_path.return_value = "test.pdf"
         mock_dependencies["db"].get_current_page.return_value = 10
-        mock_dependencies["pdf_reader"].get_total_pages.return_value = 100
-
-        await pdf_bot.status_handler(mock_message)
+        mock_dependencies["db"].get_total_pages.return_value = 100
+        mock_dependencies["db"].get_last_sent.return_value = None
+        
+        # Mock os.path.exists to return True for the PDF path
+        with patch("os.path.exists", return_value=True):
+            await pdf_bot.status_handler(mock_message)
 
         mock_message.answer.assert_called_once()
         call_args = mock_message.answer.call_args[0][0]

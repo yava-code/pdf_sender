@@ -23,35 +23,42 @@ class TestPDFReader:
     def pdf_reader(self, mock_pdf_path, temp_output_dir):
         """Create a PDFReader instance with mocked dependencies"""
         with patch("pdf_reader.DatabaseManager"):
-            return PDFReader(mock_pdf_path, temp_output_dir)
+            return PDFReader(pdf_path=mock_pdf_path, output_dir=temp_output_dir)
 
-    @patch("pymupdf.open")
-    def test_get_total_pages(self, mock_pymupdf_open, pdf_reader):
+    @patch("os.path.exists")
+    @patch("fitz.open")
+    def test_get_total_pages(self, mock_fitz_open, mock_path_exists, pdf_reader):
         """Test getting total pages from PDF"""
-        # Mock PDF document
+        # Mock file existence and PDF document
+        mock_path_exists.return_value = True
         mock_doc = Mock()
         mock_doc.__len__ = Mock(return_value=50)
-        mock_pymupdf_open.return_value = mock_doc
+        mock_fitz_open.return_value = mock_doc
 
         total_pages = pdf_reader.get_total_pages()
 
         assert total_pages == 50
-        mock_pymupdf_open.assert_called_once_with(pdf_reader.pdf_path)
+        mock_fitz_open.assert_called_once_with(pdf_reader.pdf_path)
         mock_doc.close.assert_called_once()
-        pdf_reader.db.set_total_pages.assert_called_once_with(50)
+        # Don't expect set_total_pages call since no user_id is provided
 
-    @patch("pymupdf.open")
-    def test_get_total_pages_error(self, mock_pymupdf_open, pdf_reader):
+    @patch("os.path.exists")
+    @patch("fitz.open")
+    def test_get_total_pages_error(self, mock_fitz_open, mock_path_exists, pdf_reader):
         """Test error handling when getting total pages"""
-        mock_pymupdf_open.side_effect = Exception("PDF read error")
+        mock_path_exists.return_value = True
+        mock_fitz_open.side_effect = Exception("PDF read error")
 
-        with pytest.raises(Exception, match="Error reading PDF"):
-            pdf_reader.get_total_pages()
+        # Should return 0 on error, not raise exception
+        total_pages = pdf_reader.get_total_pages()
+        assert total_pages == 0
 
-    @patch("pymupdf.open")
-    def test_extract_page_as_image(self, mock_pymupdf_open, pdf_reader):
+    @patch("os.path.exists")
+    @patch("fitz.open")
+    def test_extract_page_as_image(self, mock_fitz_open, mock_path_exists, pdf_reader):
         """Test extracting a single page as image"""
-        # Mock PDF document and page
+        # Mock file existence and PDF document and page
+        mock_path_exists.return_value = True
         mock_doc = Mock()
         mock_doc.__len__ = Mock(return_value=100)
         mock_page = Mock()
@@ -59,7 +66,7 @@ class TestPDFReader:
 
         mock_doc.load_page.return_value = mock_page
         mock_page.get_pixmap.return_value = mock_pix
-        mock_pymupdf_open.return_value = mock_doc
+        mock_fitz_open.return_value = mock_doc
 
         page_number = 5
         result_path = pdf_reader.extract_page_as_image(page_number)
@@ -72,21 +79,21 @@ class TestPDFReader:
         mock_pix.save.assert_called_once_with(expected_path)
         mock_doc.close.assert_called_once()
 
-    @patch("pymupdf.open")
-    def test_extract_page_out_of_range(self, mock_pymupdf_open, pdf_reader):
+    @patch("os.path.exists")
+    @patch("fitz.open")
+    def test_extract_page_out_of_range(self, mock_fitz_open, mock_path_exists, pdf_reader):
         """Test extracting page that's out of range"""
+        mock_path_exists.return_value = True
         mock_doc = Mock()
         mock_doc.__len__ = Mock(return_value=10)
-        mock_pymupdf_open.return_value = mock_doc
+        mock_fitz_open.return_value = mock_doc
 
         # Test with a page number beyond the total pages
         out_of_range_page = 15
 
-        with pytest.raises(
-            Exception, match=f"Error extracting page {out_of_range_page}"
-        ):
-            pdf_reader.extract_page_as_image(out_of_range_page)
-
+        # Should return None for out of range pages, not raise exception
+        result = pdf_reader.extract_page_as_image(out_of_range_page)
+        assert result is None
         mock_doc.close.assert_called_once()
 
     @patch("pdf_reader.PDFReader.extract_page_as_image")
@@ -126,10 +133,12 @@ class TestPDFReader:
         assert result_paths == expected_paths
         assert mock_extract_page.call_count == 2
 
-    @patch("pymupdf.open")
-    def test_get_page_info(self, mock_pymupdf_open, pdf_reader):
+    @patch("os.path.exists")
+    @patch("fitz.open")
+    def test_get_page_info(self, mock_fitz_open, mock_path_exists, pdf_reader):
         """Test getting page information"""
-        # Mock PDF document and page
+        # Mock file existence and PDF document and page
+        mock_path_exists.return_value = True
         mock_doc = Mock()
         mock_doc.__len__ = Mock(return_value=100)
         mock_page = Mock()
@@ -140,7 +149,7 @@ class TestPDFReader:
         mock_page.rect = mock_rect
         mock_page.rotation = 0
         mock_doc.load_page.return_value = mock_page
-        mock_pymupdf_open.return_value = mock_doc
+        mock_fitz_open.return_value = mock_doc
 
         page_number = 5
         info = pdf_reader.get_page_info(page_number)
@@ -197,7 +206,7 @@ class TestPDFReader:
 
             # Create PDFReader - should create the directory
             with patch("pdf_reader.DatabaseManager"):
-                pdf_reader = PDFReader(mock_pdf_path, output_dir)
+                pdf_reader = PDFReader(pdf_path=mock_pdf_path, output_dir=output_dir)
 
             # Directory should now exist
             assert os.path.exists(output_dir)
