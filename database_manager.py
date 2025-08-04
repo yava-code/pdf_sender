@@ -137,6 +137,17 @@ class DatabaseManager:
         """Get all users"""
         data = self.load_data()
         return data.get("users", [])
+    
+    def get_user(self, user_id: int) -> Optional[Dict[str, Any]]:
+        """Get a specific user by ID, returns None if not found"""
+        data = self.load_data()
+        users = data.get("users", [])
+        
+        for user in users:
+            if user["id"] == user_id:
+                return user
+        
+        return None
         
     def set_pdf_path(self, user_id: int, pdf_path: str):
         """Set PDF path for a user"""
