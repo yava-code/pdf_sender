@@ -103,6 +103,9 @@ class PDFSenderBot:
 
     async def status_handler(self, message: types.Message):
         """Handle /status command"""
+        if message.from_user is None:
+            return
+        
         user_id = message.from_user.id
 
         # Check if user exists
@@ -396,6 +399,9 @@ class PDFSenderBot:
 
     async def upload_command(self, message: types.Message, state: FSMContext):
         """Handle /upload command"""
+        if message.from_user is None:
+            return
+        
         user_id = message.from_user.id
 
         # Check if user exists
@@ -412,6 +418,9 @@ class PDFSenderBot:
 
     async def process_pdf_upload(self, message: types.Message, state: FSMContext):
         """Process uploaded PDF file"""
+        if message.from_user is None:
+            return
+        
         user_id = message.from_user.id
 
         try:
@@ -477,6 +486,9 @@ class PDFSenderBot:
 
     async def book_command(self, message: types.Message):
         """Handle /book command to show current book info"""
+        if message.from_user is None:
+            return
+        
         user_id = message.from_user.id
 
         # Check if user exists

@@ -20,12 +20,28 @@ class TestPDFReader:
             yield temp_dir
 
     @pytest.fixture
-    def pdf_reader(self, mock_pdf_path, temp_output_dir):
-        """Create a PDFReader instance with mocked dependencies"""
-        with patch("pdf_reader.DatabaseManager"):
-            return PDFReader(mock_pdf_path, temp_output_dir)
+    def mock_pdf_file(self):
+        """Create a temporary mock PDF file"""
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
+            # Write some dummy PDF content
+            temp_file.write(b"%PDF-1.4\n")
+            temp_file.flush()
+            yield temp_file.name
+        os.unlink(temp_file.name)
 
-    @patch("pymupdf.open")
+    @pytest.fixture
+    def pdf_reader(self, mock_pdf_file, temp_output_dir):
+        """Create a PDFReader instance with mocked dependencies"""
+        with patch("pdf_reader.DatabaseManager") as mock_db_class:
+            mock_db = Mock()
+            mock_db_class.return_value = mock_db
+            # Mock the database to return the mock PDF path
+            mock_db.get_pdf_path.return_value = mock_pdf_file
+            # Setup a user_id for the reader  
+            user_id = 123
+            return PDFReader(user_id=user_id, pdf_path=mock_pdf_file, output_dir=temp_output_dir, db=mock_db)
+
+    @patch("pdf_reader.pymupdf.open")
     def test_get_total_pages(self, mock_pymupdf_open, pdf_reader):
         """Test getting total pages from PDF"""
         # Mock PDF document
@@ -38,17 +54,18 @@ class TestPDFReader:
         assert total_pages == 50
         mock_pymupdf_open.assert_called_once_with(pdf_reader.pdf_path)
         mock_doc.close.assert_called_once()
-        pdf_reader.db.set_total_pages.assert_called_once_with(50)
+        pdf_reader.db.set_total_pages.assert_called_once_with(123, 50)
 
-    @patch("pymupdf.open")
+    @patch("pdf_reader.pymupdf.open")
     def test_get_total_pages_error(self, mock_pymupdf_open, pdf_reader):
         """Test error handling when getting total pages"""
         mock_pymupdf_open.side_effect = Exception("PDF read error")
 
-        with pytest.raises(Exception, match="Error reading PDF"):
-            pdf_reader.get_total_pages()
+        # Should return 0 on error instead of raising
+        total_pages = pdf_reader.get_total_pages()
+        assert total_pages == 0
 
-    @patch("pymupdf.open")
+    @patch("pdf_reader.pymupdf.open")
     def test_extract_page_as_image(self, mock_pymupdf_open, pdf_reader):
         """Test extracting a single page as image"""
         # Mock PDF document and page
@@ -72,7 +89,7 @@ class TestPDFReader:
         mock_pix.save.assert_called_once_with(expected_path)
         mock_doc.close.assert_called_once()
 
-    @patch("pymupdf.open")
+    @patch("pdf_reader.pymupdf.open")
     def test_extract_page_out_of_range(self, mock_pymupdf_open, pdf_reader):
         """Test extracting page that's out of range"""
         mock_doc = Mock()
@@ -82,11 +99,11 @@ class TestPDFReader:
         # Test with a page number beyond the total pages
         out_of_range_page = 15
 
-        with pytest.raises(
-            Exception, match=f"Error extracting page {out_of_range_page}"
-        ):
-            pdf_reader.extract_page_as_image(out_of_range_page)
+        # Should return None for out of range pages instead of raising
+        result = pdf_reader.extract_page_as_image(out_of_range_page)
+        assert result is None
 
+        # Document should be closed when out of range is detected
         mock_doc.close.assert_called_once()
 
     @patch("pdf_reader.PDFReader.extract_page_as_image")
@@ -126,7 +143,7 @@ class TestPDFReader:
         assert result_paths == expected_paths
         assert mock_extract_page.call_count == 2
 
-    @patch("pymupdf.open")
+    @patch("pdf_reader.pymupdf.open")
     def test_get_page_info(self, mock_pymupdf_open, pdf_reader):
         """Test getting page information"""
         # Mock PDF document and page
@@ -187,7 +204,7 @@ class TestPDFReader:
         assert "page_1.png" not in remaining_files
         assert "page_2.png" not in remaining_files
 
-    def test_ensure_output_dir(self, mock_pdf_path):
+    def test_ensure_output_dir(self, mock_pdf_file):
         """Test output directory creation"""
         with tempfile.TemporaryDirectory() as temp_dir:
             output_dir = os.path.join(temp_dir, "new_output")
@@ -196,8 +213,10 @@ class TestPDFReader:
             assert not os.path.exists(output_dir)
 
             # Create PDFReader - should create the directory
-            with patch("pdf_reader.DatabaseManager"):
-                pdf_reader = PDFReader(mock_pdf_path, output_dir)
+            with patch("pdf_reader.DatabaseManager") as mock_db_class:
+                mock_db = Mock()
+                mock_db_class.return_value = mock_db
+                pdf_reader = PDFReader(user_id=123, pdf_path=mock_pdf_file, output_dir=output_dir, db=mock_db)
 
             # Directory should now exist
             assert os.path.exists(output_dir)

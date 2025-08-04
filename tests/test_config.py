@@ -70,7 +70,7 @@ class TestConfig:
             Config.validate()
 
     def test_validate_missing_pdf(self):
-        """Test validation with missing PDF file"""
+        """Test validation no longer checks for PDF file since app supports per-user uploads"""
         with patch.dict(
             os.environ, {"BOT_TOKEN": "test_token_123", "PDF_PATH": "nonexistent.pdf"}
         ):
@@ -80,5 +80,5 @@ class TestConfig:
 
             reload(config)
 
-            with pytest.raises(FileNotFoundError, match="PDF file not found"):
-                config.Config.validate()
+            # Should not raise an error as PDF validation is removed for per-user support
+            config.Config.validate()
