@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  pdf-sender-bot:
+    build: .
+    container_name: pdf-sender-bot
+    restart: unless-stopped
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - PAGES_PER_SEND=${PAGES_PER_SEND:-3}
+      - SCHEDULE_TIME=${SCHEDULE_TIME:-09:00}
+      - PDF_PATH=${PDF_PATH:-book.pdf}
+      - OUTPUT_DIR=${OUTPUT_DIR:-output}
+      - DATABASE_PATH=${DATABASE_PATH:-database.json}
+    volumes:
+      - ./book.pdf:/app/book.pdf:ro
+      - ./database.json:/app/database.json
+      - ./output:/app/output
+      - ./logs:/app/logs
+    networks:
+      - pdf-sender-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  pdf-sender-network:
+    driver: bridge
+
+volumes:
+  pdf-data:
+    driver: local
+  logs:
+    driver: local
