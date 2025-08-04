@@ -1,9 +1,9 @@
 import asyncio
 import logging
-from datetime import datetime, time
+from datetime import datetime, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from config import Config
 
@@ -17,42 +17,41 @@ class PDFScheduler:
         self._setup_schedule()
 
     def _setup_schedule(self):
-        """Setup the daily schedule for sending pages"""
+        """Setup the interval schedule for sending pages"""
         try:
-            # Parse schedule time (format: HH:MM)
-            schedule_time = Config.SCHEDULE_TIME
-            hour, minute = map(int, schedule_time.split(":"))
-
-            # Add job to scheduler
+            # Get interval in hours from config
+            interval_hours = Config.INTERVAL_HOURS
+            
+            # Add job to scheduler to run every X hours
             self.scheduler.add_job(
-                self._send_daily_pages_job,
-                CronTrigger(hour=hour, minute=minute),
-                id="daily_pages",
-                name="Send Daily PDF Pages",
+                self._check_and_send_pages_job,
+                IntervalTrigger(hours=interval_hours),
+                id="interval_pages",
+                name=f"Send PDF Pages Every {interval_hours} Hours",
                 replace_existing=True,
             )
 
-            logger.info(f"Scheduled daily pages at {schedule_time}")
+            logger.info(f"Scheduled pages to send every {interval_hours} hours")
 
         except Exception as e:
             logger.error(f"Error setting up schedule: {e}")
-            # Fallback to default time (9:00 AM)
+            # Fallback to default interval (6 hours)
             self.scheduler.add_job(
-                self._send_daily_pages_job,
-                CronTrigger(hour=9, minute=0),
-                id="daily_pages",
-                name="Send Daily PDF Pages (Default)",
+                self._check_and_send_pages_job,
+                IntervalTrigger(hours=6),
+                id="interval_pages",
+                name="Send PDF Pages Every 6 Hours (Default)",
                 replace_existing=True,
             )
 
-    async def _send_daily_pages_job(self):
-        """Job function to send daily pages"""
+    async def _check_and_send_pages_job(self):
+        """Job function to check and send pages based on interval"""
         try:
-            logger.info("Starting daily pages job")
-            await self.bot.send_daily_pages()
-            logger.info("Daily pages job completed")
+            logger.info("Starting interval pages job")
+            await self.bot.check_and_send_pages()
+            logger.info("Interval pages job completed")
         except Exception as e:
-            logger.error(f"Error in daily pages job: {e}")
+            logger.error(f"Error in interval pages job: {e}")
 
     def start(self):
         """Start the scheduler"""
@@ -73,7 +72,7 @@ class PDFScheduler:
     def get_next_run_time(self):
         """Get the next scheduled run time"""
         try:
-            job = self.scheduler.get_job("daily_pages")
+            job = self.scheduler.get_job("interval_pages")
             if job:
                 return job.next_run_time
             return None
@@ -81,24 +80,22 @@ class PDFScheduler:
             logger.error(f"Error getting next run time: {e}")
             return None
 
-    def reschedule(self, new_time: str):
-        """Reschedule the daily job to a new time"""
+    def reschedule(self, new_interval_hours: int):
+        """Reschedule the interval job to a new interval"""
         try:
-            hour, minute = map(int, new_time.split(":"))
-
             # Remove existing job
-            self.scheduler.remove_job("daily_pages")
+            self.scheduler.remove_job("interval_pages")
 
             # Add new job
             self.scheduler.add_job(
-                self._send_daily_pages_job,
-                CronTrigger(hour=hour, minute=minute),
-                id="daily_pages",
-                name="Send Daily PDF Pages",
+                self._check_and_send_pages_job,
+                IntervalTrigger(hours=new_interval_hours),
+                id="interval_pages",
+                name=f"Send PDF Pages Every {new_interval_hours} Hours",
                 replace_existing=True,
             )
 
-            logger.info(f"Rescheduled daily pages to {new_time}")
+            logger.info(f"Rescheduled pages to send every {new_interval_hours} hours")
             return True
 
         except Exception as e:
