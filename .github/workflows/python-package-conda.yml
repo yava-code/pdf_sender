@@ -39,15 +39,15 @@ jobs:
       run: |
         # Create a simple test PDF for testing
         python -c "
-import fitz
-doc = fitz.open()
-page = doc.new_page()
-text = page.insert_text((72, 72), 'Test PDF Page 1')
-page = doc.new_page()
-text = page.insert_text((72, 72), 'Test PDF Page 2')
-doc.save('book.pdf')
-doc.close()
-"
+        import fitz
+        doc = fitz.open()
+        page = doc.new_page()
+        text = page.insert_text((72, 72), 'Test PDF Page 1')
+        page = doc.new_page()
+        text = page.insert_text((72, 72), 'Test PDF Page 2')
+        doc.save('book.pdf')
+        doc.close()
+        "
     
     - name: Lint with flake8
       run: |

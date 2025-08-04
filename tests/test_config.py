@@ -42,30 +42,11 @@ class TestConfig:
             assert config.Config.OUTPUT_DIR == 'output'
             assert config.Config.DATABASE_PATH == 'database.json'
     
+    @patch.object(Config, 'BOT_TOKEN', None)
     def test_validate_missing_token(self):
         """Test validation fails when BOT_TOKEN is missing."""
-        # Save original value
-        original_token = os.environ.get("BOT_TOKEN")
-        
-        try:
-            # Remove BOT_TOKEN from environment
-            if "BOT_TOKEN" in os.environ:
-                del os.environ["BOT_TOKEN"]
-            
-            # Reload the config module to pick up the environment change
-            from importlib import reload
-            import config
-            reload(config)
-            
-            with pytest.raises(ValueError, match="BOT_TOKEN environment variable is required"):
-                config.Config.validate()
-        finally:
-            # Restore original value
-            if original_token is not None:
-                os.environ["BOT_TOKEN"] = original_token
-                # Reload again to restore the original state
-                import config
-                reload(config)
+        with pytest.raises(ValueError, match="BOT_TOKEN environment variable is required"):
+            Config.validate()
     
     def test_validate_missing_pdf(self):
         """Test validation with missing PDF file"""

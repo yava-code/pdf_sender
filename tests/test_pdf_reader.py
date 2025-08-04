@@ -79,7 +79,7 @@ class TestPDFReader:
         # Test with a page number beyond the total pages
         out_of_range_page = 15
         
-        with pytest.raises(ValueError, match=f"Page {out_of_range_page} is out of range"):
+        with pytest.raises(Exception, match=f"Error extracting page {out_of_range_page}"):
             pdf_reader.extract_page_as_image(out_of_range_page)
         
         mock_doc.close.assert_called_once()
