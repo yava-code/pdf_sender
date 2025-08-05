@@ -173,8 +173,8 @@ class PDFSenderBot:
             current_page = self.db.get_current_page(user_id)
             await self.send_pages_to_user(user_id, current_page)
 
-            # Update current page
-            new_page = self.db.increment_page(user_id)
+            # Update current page based on pages sent
+            new_page = self.db.increment_page(user_id, Config.PAGES_PER_SEND)
 
             await message.answer(
                 f"📖 Sent pages {current_page}-"
@@ -386,8 +386,10 @@ class PDFSenderBot:
                         # Get current page
                         current_page = self.db.get_current_page(user_id)
 
-                        # Increment page for next time
-                        next_page = self.db.increment_page(user_id)
+                        # Increment page for next time based on pages per send
+                        next_page = self.db.increment_page(
+                            user_id, Config.PAGES_PER_SEND
+                        )
                         logger.info(
                             f"User {user_id}: Incremented page from "
                             f"{current_page} to {next_page}"
