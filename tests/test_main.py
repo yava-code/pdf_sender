@@ -129,7 +129,7 @@ class TestPDFSenderBot:
         pdf_bot.send_pages_to_user.assert_called_once_with(12345, 5)
 
         # Check that page was incremented
-        mock_dependencies["db"].increment_page.assert_called_once_with(12345)
+        mock_dependencies["db"].increment_page.assert_called_once_with(12345, 3)
 
         # Check response message
         mock_message.answer.assert_called_once()
@@ -321,7 +321,8 @@ class TestPDFSenderBot:
         def mock_get_current_page(user_id):
             return 10
 
-        def mock_increment_page(user_id):
+        def mock_increment_page(user_id, increment):
+            assert increment == 3
             return 13
 
         mock_dependencies["db"].get_pdf_path.side_effect = mock_get_pdf_path
