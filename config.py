@@ -15,6 +15,17 @@ class Config:
     DATABASE_PATH = os.getenv("DATABASE_PATH", "database.json")
     UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
 
+    # File validation settings
+    MAX_FILE_SIZE_MB = int(
+        os.getenv("MAX_FILE_SIZE_MB", 50)
+    )  # Maximum PDF file size in MB
+    IMAGE_RETENTION_DAYS = int(
+        os.getenv("IMAGE_RETENTION_DAYS", 7)
+    )  # Days to keep generated images
+    IMAGE_QUALITY = int(
+        os.getenv("IMAGE_QUALITY", 85)
+    )  # JPEG quality for generated images (1-100)
+
     @classmethod
     def validate(cls):
         if not cls.BOT_TOKEN:

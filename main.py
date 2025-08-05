@@ -11,8 +11,10 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import FSInputFile
 
+from cleanup_manager import CleanupManager
 from config import Config
 from database_manager import DatabaseManager
+from file_validator import FileValidator
 from pdf_reader import PDFReader
 from scheduler import PDFScheduler
 
@@ -53,6 +55,7 @@ class PDFSenderBot:
         self.dp.message.register(self.goto_page_handler, Command("goto"))
         self.dp.message.register(self.book_command, Command("book"))
         self.dp.message.register(self.upload_command, Command("upload"))
+        self.dp.message.register(self.stats_command, Command("stats"))
 
         # Upload PDF handlers
         self.dp.message.register(self.process_pdf_upload, UploadPDF.waiting_for_file)
@@ -76,7 +79,8 @@ class PDFSenderBot:
             "/status - Show current reading progress\n"
             "/next - Get next 3 pages manually\n"
             "/current - Get current page\n"
-            "/goto <page> - Jump to specific page\n\n"
+            "/goto <page> - Jump to specific page\n"
+            "/stats - Show storage and reading statistics\n\n"
             "📖 Happy reading!"
         )
 
@@ -95,7 +99,8 @@ class PDFSenderBot:
             "/status - Show current reading progress\n"
             "/next - Get next 3 pages manually\n"
             "/current - Get current page\n"
-            "/goto <page> - Jump to specific page\n\n"
+            "/goto <page> - Jump to specific page\n"
+            "/stats - Show storage and reading statistics\n\n"
             "📅 The bot automatically sends pages according to schedule.\n"
             "📖 Use /next to get additional pages anytime!"
         )
@@ -445,6 +450,20 @@ class PDFSenderBot:
                 await message.reply("Please send a PDF file.")
                 return
 
+            # Check file size before downloading
+            file_size = message.document.file_size
+            if file_size and file_size > Config.MAX_FILE_SIZE_MB * 1024 * 1024:
+                await message.reply(
+                    f"❌ File too large! Maximum file size is {Config.MAX_FILE_SIZE_MB}MB."
+                )
+                return
+
+            # Validate and sanitize filename
+            original_filename = message.document.file_name or "book.pdf"
+            is_valid_name, sanitized_filename = FileValidator.validate_file_name(
+                original_filename
+            )
+
             # Download the file
             file_id = message.document.file_id
             file_info = await self.bot.get_file(file_id)
@@ -454,15 +473,28 @@ class PDFSenderBot:
             user_upload_dir = os.path.join(Config.UPLOAD_DIR, str(user_id))
             os.makedirs(user_upload_dir, exist_ok=True)
 
-            # Generate a filename based on the original filename or a default
-            filename = (
-                message.document.file_name
-                or f"book_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            # Generate local file path with timestamp to avoid conflicts
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            base_name = os.path.splitext(sanitized_filename)[0]
+            local_file_path = os.path.join(
+                user_upload_dir, f"{base_name}_{timestamp}.pdf"
             )
-            local_file_path = os.path.join(user_upload_dir, filename)
 
             # Download the file
+            await message.reply("📥 Downloading and validating your PDF...")
             await self.bot.download_file(file_path, local_file_path)
+
+            # Validate the downloaded PDF
+            is_valid, validation_message = FileValidator.validate_pdf_file(
+                local_file_path, file_size
+            )
+
+            if not is_valid:
+                # Clean up the downloaded file
+                if os.path.exists(local_file_path):
+                    os.remove(local_file_path)
+                await message.reply(f"❌ {validation_message}")
+                return
 
             # Create a PDFReader instance to validate and set the PDF
             pdf_reader = PDFReader(
@@ -474,13 +506,17 @@ class PDFSenderBot:
                 total_pages = self.db.get_total_pages(user_id)
                 await message.reply(
                     f"✅ PDF successfully uploaded!\n\n"
-                    f"📚 Book: {filename}\n"
-                    f"📄 Total pages: {total_pages}\n\n"
+                    f"📚 Book: {sanitized_filename}\n"
+                    f"📄 Total pages: {total_pages}\n"
+                    f"💾 File size: {file_size / 1024 / 1024:.1f}MB\n\n"
                     f"Your reading starts from page 1. Use /next to get the first page."
+                )
+                logger.info(
+                    f"User {user_id} uploaded PDF: {sanitized_filename} ({total_pages} pages)"
                 )
             else:
                 await message.reply(
-                    "❌ There was a problem with your PDF file. Please try another one."
+                    "❌ There was a problem processing your PDF file. Please try another one."
                 )
                 # Clean up the file if there was an error
                 if os.path.exists(local_file_path):
@@ -525,11 +561,118 @@ class PDFSenderBot:
             f"📚 *Your Current Book* 📚\n\n"
             f"Title: {filename}\n"
             f"Current page: {current_page} of {total_pages}\n"
-            f"Progress: {current_page/total_pages*100:.1f}%\n\n"
+            f"Progress: {current_page / total_pages * 100:.1f}%\n\n"
             f"Use /upload to change your book."
         )
 
         await message.reply(book_info)
+
+    async def stats_command(self, message: types.Message):
+        """Handle /stats command to show storage and reading statistics"""
+        if message.from_user is None:
+            return
+
+        user_id = message.from_user.id
+
+        # Check if user exists
+        if not self.db.get_user(user_id):
+            await message.reply("You need to /start the bot first!")
+            return
+
+        try:
+            # Get storage usage
+            storage_stats = CleanupManager.get_storage_usage()
+
+            # Get user reading stats
+            user_data = self.db.get_user_data(user_id)
+            pdf_path = self.db.get_pdf_path(user_id)
+
+            stats_text = "📊 *Bot Statistics*\n\n"
+
+            # Storage information
+            stats_text += "💾 *Storage Usage:*\n"
+            stats_text += f"Generated images: {CleanupManager.format_file_size(storage_stats['output_dir_size'])} ({storage_stats['output_dir_files']} files)\n"
+            stats_text += f"Uploaded PDFs: {CleanupManager.format_file_size(storage_stats['upload_dir_size'])} ({storage_stats['upload_dir_files']} files)\n"
+            stats_text += f"Total storage: {CleanupManager.format_file_size(storage_stats['total_size'])}\n\n"
+
+            # User reading stats
+            if pdf_path and os.path.exists(pdf_path):
+                current_page = self.db.get_current_page(user_id)
+                total_pages = self.db.get_total_pages(user_id)
+                progress = (current_page / total_pages) * 100 if total_pages > 0 else 0
+
+                stats_text += "📖 *Your Reading Stats:*\n"
+                stats_text += f"Current book: {os.path.basename(pdf_path)}\n"
+                stats_text += (
+                    f"Progress: {current_page}/{total_pages} pages ({progress:.1f}%)\n"
+                )
+
+                # Calculate reading pace
+                last_sent = self.db.get_last_sent(user_id)
+                if last_sent:
+                    join_date = user_data.get("joined_at")
+                    if join_date:
+                        try:
+                            join_dt = datetime.fromisoformat(
+                                join_date.replace("Z", "+00:00")
+                            )
+                            days_reading = (datetime.now() - join_dt).days + 1
+                            pages_per_day = (
+                                current_page / days_reading if days_reading > 0 else 0
+                            )
+                            stats_text += (
+                                f"Reading pace: {pages_per_day:.1f} pages/day\n"
+                            )
+
+                            if progress > 0:
+                                estimated_days_left = (
+                                    (total_pages - current_page) / pages_per_day
+                                    if pages_per_day > 0
+                                    else 0
+                                )
+                                if estimated_days_left > 0:
+                                    stats_text += f"Est. completion: {estimated_days_left:.0f} days\n"
+                        except (ValueError, TypeError):
+                            pass
+
+                stats_text += "\n"
+            else:
+                stats_text += "📖 *No book uploaded yet*\n\n"
+
+            # Configuration info
+            stats_text += "⚙️ *Configuration:*\n"
+            stats_text += f"Pages per send: {Config.PAGES_PER_SEND}\n"
+            stats_text += f"Send interval: {Config.INTERVAL_HOURS} hours\n"
+            stats_text += f"Max file size: {Config.MAX_FILE_SIZE_MB}MB\n"
+            stats_text += f"Image retention: {Config.IMAGE_RETENTION_DAYS} days\n"
+
+            await message.reply(stats_text, parse_mode="Markdown")
+
+        except Exception as e:
+            logger.error(f"Error generating stats: {e}")
+            await message.reply(
+                "❌ Error generating statistics. Please try again later."
+            )
+
+    async def cleanup_old_files(self):
+        """Perform cleanup of old files"""
+        try:
+            logger.info("Starting automatic cleanup...")
+
+            # Clean up old images
+            deleted_images = CleanupManager.cleanup_old_images()
+
+            # Clean up orphaned uploads (older than 24 hours)
+            deleted_uploads = CleanupManager.cleanup_orphaned_uploads()
+
+            total_deleted = deleted_images + deleted_uploads
+            if total_deleted > 0:
+                logger.info(
+                    f"Cleanup completed: {deleted_images} images, {deleted_uploads} uploads deleted"
+                )
+
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
 
     async def start_polling(self):
         """Start the bot"""

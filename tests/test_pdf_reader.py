@@ -86,12 +86,12 @@ class TestPDFReader:
         page_number = 5
         result_path = pdf_reader.extract_page_as_image(page_number)
 
-        expected_path = os.path.join(pdf_reader.output_dir, f"page_{page_number}.png")
+        expected_path = os.path.join(pdf_reader.output_dir, f"page_{page_number}.jpg")
         assert result_path == expected_path
 
         mock_doc.load_page.assert_called_once_with(page_number - 1)  # 0-based indexing
         mock_page.get_pixmap.assert_called_once_with(dpi=150)
-        mock_pix.save.assert_called_once_with(expected_path)
+        mock_pix.save.assert_called_once_with(expected_path, jpg_quality=85)
         mock_doc.close.assert_called_once()
 
     @patch("pdf_reader.pymupdf.open")
