@@ -73,8 +73,7 @@ class TestConfig:
         """Test validation no longer checks for PDF file since app supports
         per-user uploads"""
         with patch.dict(
-            os.environ,
-            {"BOT_TOKEN": "test_token_123", "PDF_PATH": "nonexistent.pdf"}
+            os.environ, {"BOT_TOKEN": "test_token_123", "PDF_PATH": "nonexistent.pdf"}
         ):
             from importlib import reload
 

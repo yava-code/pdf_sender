@@ -97,7 +97,7 @@ class TestPDFSenderBot:
         mock_dependencies["db"].get_current_page.return_value = 10
         mock_dependencies["db"].get_total_pages.return_value = 100
         mock_dependencies["db"].get_last_sent.return_value = None
-        
+
         # Mock os.path.exists to return True for the PDF path
         with patch("main.os.path.exists", return_value=True):
             await pdf_bot.status_handler(mock_message)
@@ -149,13 +149,14 @@ class TestPDFSenderBot:
         mock_pdf_reader_instance = Mock()
         mock_pdf_reader_instance.extract_pages_as_images.return_value = ["page_15.png"]
         mock_pdf_reader_instance.cleanup_images.return_value = None
-        
+
         # Mock bot send_photo method
         mock_dependencies["bot"].send_photo = AsyncMock()
 
         # Mock os.path.exists to return True for the PDF path
-        with patch("main.os.path.exists", return_value=True), \
-             patch("main.PDFReader", return_value=mock_pdf_reader_instance):
+        with patch("main.os.path.exists", return_value=True), patch(
+            "main.PDFReader", return_value=mock_pdf_reader_instance
+        ):
             await pdf_bot.current_page_handler(mock_message)
 
         # Check that send_photo was called
@@ -191,10 +192,12 @@ class TestPDFSenderBot:
         pdf_bot._send_single_page.assert_called_once_with(12345, 25)
 
     @pytest.mark.asyncio
-    async def test_goto_page_handler_invalid_format(self, pdf_bot, mock_message, mock_dependencies):
+    async def test_goto_page_handler_invalid_format(
+        self, pdf_bot, mock_message, mock_dependencies
+    ):
         """Test /goto command handler with invalid format"""
         mock_message.text = "/goto"
-        
+
         # Setup mock returns
         mock_dependencies["db"].get_user.return_value = {"id": 12345}
         mock_dependencies["db"].get_pdf_path.return_value = "test.pdf"
@@ -208,10 +211,12 @@ class TestPDFSenderBot:
         assert "Usage: /goto <page_number>" in call_args
 
     @pytest.mark.asyncio
-    async def test_goto_page_handler_invalid_number(self, pdf_bot, mock_message, mock_dependencies):
+    async def test_goto_page_handler_invalid_number(
+        self, pdf_bot, mock_message, mock_dependencies
+    ):
         """Test /goto command handler with invalid page number"""
         mock_message.text = "/goto abc"
-        
+
         # Setup mock returns
         mock_dependencies["db"].get_user.return_value = {"id": 12345}
         mock_dependencies["db"].get_pdf_path.return_value = "test.pdf"
@@ -230,7 +235,7 @@ class TestPDFSenderBot:
     ):
         """Test /goto command handler with page out of range"""
         mock_message.text = "/goto 150"
-        
+
         # Setup mock returns
         mock_dependencies["db"].get_user.return_value = {"id": 12345}
         mock_dependencies["db"].get_pdf_path.return_value = "test.pdf"
@@ -305,20 +310,20 @@ class TestPDFSenderBot:
             {"id": 123, "username": "user1"},
             {"id": 456, "username": "user2"},
         ]
-        
+
         # Mock per-user database calls
         def mock_get_pdf_path(user_id):
             return "test.pdf"
-        
+
         def mock_get_last_sent(user_id):
             return None  # Never sent before
-            
+
         def mock_get_current_page(user_id):
             return 10
-            
+
         def mock_increment_page(user_id):
             return 13
-        
+
         mock_dependencies["db"].get_pdf_path.side_effect = mock_get_pdf_path
         mock_dependencies["db"].get_last_sent.side_effect = mock_get_last_sent
         mock_dependencies["db"].get_current_page.side_effect = mock_get_current_page
