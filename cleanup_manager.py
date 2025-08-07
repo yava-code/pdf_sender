@@ -15,7 +15,9 @@ class CleanupManager:
     """Manages cleanup of old generated images and temporary files"""
 
     @staticmethod
-    def cleanup_old_images(output_dir: str = None, retention_days: int = None) -> int:
+    def cleanup_old_images(
+        output_dir: str | None = None, retention_days: int | None = None
+    ) -> int:
         """
         Clean up old generated images
 
@@ -77,7 +79,7 @@ class CleanupManager:
 
     @staticmethod
     def cleanup_orphaned_uploads(
-        upload_dir: str = None, max_age_hours: int = 24
+        upload_dir: str | None = None, max_age_hours: int = 24
     ) -> int:
         """
         Clean up orphaned upload files (uploads that weren't properly processed)
@@ -186,8 +188,9 @@ class CleanupManager:
 
         size_names = ["B", "KB", "MB", "GB"]
         i = 0
-        while size_bytes >= 1024 and i < len(size_names) - 1:
-            size_bytes /= 1024.0
+        size_value = float(size_bytes)
+        while size_value >= 1024 and i < len(size_names) - 1:
+            size_value /= 1024.0
             i += 1
 
-        return f"{size_bytes:.1f} {size_names[i]}"
+        return f"{size_value:.1f} {size_names[i]}"
