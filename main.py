@@ -769,7 +769,11 @@ class PDFSenderBot:
 
             if success:
                 total_pages = self.db.get_total_pages(user_id)
+                file_size_mb = (
+                    f"{file_size / 1024 / 1024:.1f}MB" if file_size else "Unknown"
+                )
                 await message.reply(
+<<<<<<< HEAD
                     f"✅ **PDF успешно загружен!**\n\n"
                     f"📚 **Книга:** {sanitized_filename}\n"
                     f"📄 **Всего страниц:** {total_pages}\n"
@@ -778,6 +782,13 @@ class PDFSenderBot:
                     f"Используйте кнопки ниже для навигации.",
                     parse_mode="Markdown",
                     reply_markup=self.keyboards.main_menu()
+=======
+                    f"✅ PDF successfully uploaded!\n\n"
+                    f"📚 Book: {sanitized_filename}\n"
+                    f"📄 Total pages: {total_pages}\n"
+                    f"💾 File size: {file_size_mb}\n\n"
+                    f"Your reading starts from page 1. Use /next to get the first page."
+>>>>>>> 57802a836ca63a2e704097d8ee2e4e11c87376be
                 )
                 BotLogger.log_user_action(
                     user_id, username, 
