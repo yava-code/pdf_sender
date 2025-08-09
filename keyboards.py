@@ -4,85 +4,85 @@ from typing import Dict, Any
 
 
 class BotKeyboards:
-    """Класс для создания inline клавиатур бота"""
+    """Class for creating inline bot keyboards"""
     
     @staticmethod
     def main_menu() -> InlineKeyboardMarkup:
-        """Главное меню бота"""
+        """Main bot menu"""
         builder = InlineKeyboardBuilder()
         
         builder.row(
-            InlineKeyboardButton(text="📄 Следующие страницы", callback_data="next_pages"),
-            InlineKeyboardButton(text="📍 Текущая страница", callback_data="current_page")
+            InlineKeyboardButton(text="📄 Next pages", callback_data="next_pages"),
+            InlineKeyboardButton(text="📍 Current page", callback_data="current_page")
         )
         builder.row(
-            InlineKeyboardButton(text="🔍 Перейти к странице", callback_data="goto_page"),
-            InlineKeyboardButton(text="📊 Статистика", callback_data="stats")
+            InlineKeyboardButton(text="🔍 Go to page", callback_data="goto_page"),
+            InlineKeyboardButton(text="📊 Statistics", callback_data="stats")
         )
         builder.row(
-            InlineKeyboardButton(text="⚙️ Настройки", callback_data="settings_menu"),
-            InlineKeyboardButton(text="📚 Управление книгами", callback_data="books_menu")
+            InlineKeyboardButton(text="⚙️ Settings", callback_data="settings_menu"),
+            InlineKeyboardButton(text="📚 Manage books", callback_data="books_menu")
         )
         builder.row(
-            InlineKeyboardButton(text="ℹ️ Помощь", callback_data="help"),
-            InlineKeyboardButton(text="🔧 Админ панель", callback_data="admin_menu")
+            InlineKeyboardButton(text="ℹ️ Help", callback_data="help"),
+            InlineKeyboardButton(text="🔧 Admin panel", callback_data="admin_menu")
         )
         
         return builder.as_markup()
     
     @staticmethod
     def settings_menu() -> InlineKeyboardMarkup:
-        """Меню настроек"""
+        """Settings menu"""
         builder = InlineKeyboardBuilder()
         
         builder.row(
-            InlineKeyboardButton(text="📄 Страниц за раз", callback_data="set_pages_per_send"),
-            InlineKeyboardButton(text="⏰ Время отправки", callback_data="set_schedule_time")
+            InlineKeyboardButton(text="📄 Pages per send", callback_data="set_pages_per_send"),
+            InlineKeyboardButton(text="⏰ Send time", callback_data="set_schedule_time")
         )
         builder.row(
-            InlineKeyboardButton(text="🔄 Интервал отправки", callback_data="set_interval_hours"),
-            InlineKeyboardButton(text="🖼️ Качество изображений", callback_data="set_image_quality")
+            InlineKeyboardButton(text="🔄 Send interval", callback_data="set_interval_hours"),
+            InlineKeyboardButton(text="🖼️ Image quality", callback_data="set_image_quality")
         )
         builder.row(
-            InlineKeyboardButton(text="🤖 Автоотправка", callback_data="toggle_auto_send"),
-            InlineKeyboardButton(text="🔔 Уведомления", callback_data="toggle_notifications")
+            InlineKeyboardButton(text="🤖 Auto-send", callback_data="toggle_auto_send"),
+            InlineKeyboardButton(text="🔔 Notifications", callback_data="toggle_notifications")
         )
         builder.row(
-            InlineKeyboardButton(text="📋 Показать настройки", callback_data="show_settings")
+            InlineKeyboardButton(text="📋 Show settings", callback_data="show_settings")
         )
         builder.row(
-            InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu")
+            InlineKeyboardButton(text="🔙 Back", callback_data="main_menu")
         )
         
         return builder.as_markup()
     
     @staticmethod
     def pages_per_send_menu() -> InlineKeyboardMarkup:
-        """Меню выбора количества страниц"""
+        """Menu for selecting the number of pages"""
         builder = InlineKeyboardBuilder()
         
-        # Кнопки с числами от 1 до 10
+        # Buttons with numbers from 1 to 10
         for i in range(1, 11):
             builder.add(InlineKeyboardButton(
                 text=str(i), 
                 callback_data=f"pages_per_send_{i}"
             ))
         
-        # Размещаем по 5 кнопок в ряд
+        # Arrange 5 buttons per row
         builder.adjust(5, 5)
         
         builder.row(
-            InlineKeyboardButton(text="🔙 Назад к настройкам", callback_data="settings_menu")
+            InlineKeyboardButton(text="🔙 Back to settings", callback_data="settings_menu")
         )
         
         return builder.as_markup()
     
     @staticmethod
     def schedule_time_menu() -> InlineKeyboardMarkup:
-        """Меню выбора времени отправки"""
+        """Menu for selecting send time"""
         builder = InlineKeyboardBuilder()
         
-        # Популярные времена
+        # Popular times
         times = [
             ("🌅 06:00", "06:00"), ("🌄 07:00", "07:00"), ("☀️ 08:00", "08:00"),
             ("🌞 09:00", "09:00"), ("🕙 10:00", "10:00"), ("🕚 11:00", "11:00"),
@@ -98,27 +98,27 @@ class BotKeyboards:
                 callback_data=f"schedule_time_{time_val}"
             ))
         
-        # Размещаем по 3 кнопки в ряд
+        # Arrange 3 buttons per row
         builder.adjust(3)
         
         builder.row(
-            InlineKeyboardButton(text="✏️ Ввести свое время", callback_data="custom_schedule_time")
+            InlineKeyboardButton(text="✏️ Enter custom time", callback_data="custom_schedule_time")
         )
         builder.row(
-            InlineKeyboardButton(text="🔙 Назад к настройкам", callback_data="settings_menu")
+            InlineKeyboardButton(text="🔙 Back to settings", callback_data="settings_menu")
         )
         
         return builder.as_markup()
     
     @staticmethod
     def interval_hours_menu() -> InlineKeyboardMarkup:
-        """Меню выбора интервала в часах"""
+        """Menu for selecting interval in hours"""
         builder = InlineKeyboardBuilder()
         
         intervals = [
-            ("1 час", 1), ("2 часа", 2), ("3 часа", 3),
-            ("4 часа", 4), ("6 часов", 6), ("8 часов", 8),
-            ("12 часов", 12), ("24 часа", 24)
+            ("1 hour", 1), ("2 hours", 2), ("3 hours", 3),
+            ("4 hours", 4), ("6 hours", 6), ("8 hours", 8),
+            ("12 hours", 12), ("24 hours", 24)
         ]
         
         for text, hours in intervals:
@@ -130,22 +130,22 @@ class BotKeyboards:
         builder.adjust(2)
         
         builder.row(
-            InlineKeyboardButton(text="🔙 Назад к настройкам", callback_data="settings_menu")
+            InlineKeyboardButton(text="🔙 Back to settings", callback_data="settings_menu")
         )
         
         return builder.as_markup()
     
     @staticmethod
     def image_quality_menu() -> InlineKeyboardMarkup:
-        """Меню выбора качества изображений"""
+        """Menu for selecting image quality"""
         builder = InlineKeyboardBuilder()
         
         qualities = [
-            ("🔴 Низкое (50%)", 50),
-            ("🟡 Среднее (70%)", 70),
-            ("🟢 Хорошее (85%)", 85),
-            ("🔵 Высокое (95%)", 95),
-            ("⭐ Максимальное (100%)", 100)
+            ("🔴 Low (50%)", 50),
+            ("🟡 Medium (70%)", 70),
+            ("🟢 Good (85%)", 85),
+            ("🔵 High (95%)", 95),
+            ("⭐ Maximum (100%)", 100)
         ]
         
         for text, quality in qualities:
@@ -157,45 +157,45 @@ class BotKeyboards:
         builder.adjust(1)
         
         builder.row(
-            InlineKeyboardButton(text="🔙 Назад к настройкам", callback_data="settings_menu")
+            InlineKeyboardButton(text="🔙 Back to settings", callback_data="settings_menu")
         )
         
         return builder.as_markup()
     
     @staticmethod
     def books_menu() -> InlineKeyboardMarkup:
-        """Меню управления книгами"""
+        """Book management menu"""
         builder = InlineKeyboardBuilder()
         
         builder.row(
-            InlineKeyboardButton(text="📤 Загрузить книгу", callback_data="upload_book"),
-            InlineKeyboardButton(text="📚 Список книг", callback_data="list_books")
+            InlineKeyboardButton(text="📤 Upload book", callback_data="upload_book"),
+            InlineKeyboardButton(text="📚 Book list", callback_data="list_books")
         )
         builder.row(
-            InlineKeyboardButton(text="🔄 Сменить книгу", callback_data="change_book"),
-            InlineKeyboardButton(text="📊 Прогресс чтения", callback_data="reading_progress")
+            InlineKeyboardButton(text="🔄 Change book", callback_data="change_book"),
+            InlineKeyboardButton(text="📊 Reading progress", callback_data="reading_progress")
         )
         builder.row(
-            InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu")
+            InlineKeyboardButton(text="🔙 Back", callback_data="main_menu")
         )
         
         return builder.as_markup()
     
     @staticmethod
     def confirmation_menu(action: str) -> InlineKeyboardMarkup:
-        """Меню подтверждения действия"""
+        """Action confirmation menu"""
         builder = InlineKeyboardBuilder()
         
         builder.row(
-            InlineKeyboardButton(text="✅ Да", callback_data=f"confirm_{action}"),
-            InlineKeyboardButton(text="❌ Нет", callback_data="cancel_action")
+            InlineKeyboardButton(text="✅ Yes", callback_data=f"confirm_{action}"),
+            InlineKeyboardButton(text="❌ No", callback_data="cancel_action")
         )
         
         return builder.as_markup()
     
     @staticmethod
     def navigation_menu(current_page: int, total_pages: int) -> InlineKeyboardMarkup:
-        """Меню навигации по страницам"""
+        """Page navigation menu"""
         builder = InlineKeyboardBuilder()
         
         # Кнопки навигации
@@ -294,6 +294,21 @@ class BotKeyboards:
         )
         builder.row(
             InlineKeyboardButton(text="🔙 Админ панель", callback_data="admin_menu")
+        )
+        
+        return builder.as_markup()
+    
+    @staticmethod
+    def status_menu() -> InlineKeyboardMarkup:
+        """Меню статуса чтения"""
+        builder = InlineKeyboardBuilder()
+        
+        builder.row(
+            InlineKeyboardButton(text="📄 Следующие страницы", callback_data="next_pages"),
+            InlineKeyboardButton(text="🔄 Обновить статус", callback_data="status")
+        )
+        builder.row(
+            InlineKeyboardButton(text="🔙 Главное меню", callback_data="main_menu")
         )
         
         return builder.as_markup()

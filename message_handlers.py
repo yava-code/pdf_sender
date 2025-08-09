@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class MessageHandler:
-    """Обработчик текстовых сообщений"""
+    """Handles text messages"""
     
     def __init__(self, bot_instance: 'PDFSenderBot'):
         self.bot = bot_instance
@@ -24,134 +24,134 @@ class MessageHandler:
         self.keyboards = BotKeyboards()
     
     async def handle_custom_time(self, message: types.Message, state: FSMContext):
-        """Обработка ввода пользовательского времени"""
+        """Handles user's custom time input"""
         try:
             user_id = message.from_user.id
             username = message.from_user.username or "unknown"
             time_text = message.text.strip()
             
-            # Логируем действие пользователя
+            # Log user action
             BotLogger.log_user_action(user_id, username, f"custom_time_input: {time_text}")
             
-            # Проверяем формат времени (HH:MM)
+            # Validate time format (HH:MM)
             time_pattern = r'^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$'
             if not re.match(time_pattern, time_text):
                 await message.reply(
-                    "❌ **Неверный формат времени!**\n\n"
-                    "Пожалуйста, введите время в формате HH:MM\n"
-                    "Например: 09:30 или 14:15",
+                    "❌ **Invalid time format!**\n\n"
+                    "Please enter time in HH:MM format\n"
+                    "For example: 09:30 or 14:15",
                     parse_mode="Markdown"
                 )
                 return
             
-            # Сохраняем настройку
+            # Save setting
             if self.user_settings.update_user_setting(user_id, "schedule_time", time_text):
                 await message.reply(
-                    f"✅ **Время отправки установлено: {time_text}**\n\n"
-                    "Настройка сохранена!",
+                    f"✅ **Send time set to: {time_text}**\n\n"
+                    "Setting saved!",
                     reply_markup=self.keyboards.settings_menu(),
                     parse_mode="Markdown"
                 )
                 await state.clear()
             else:
                 await message.reply(
-                    "❌ Ошибка сохранения настройки. Попробуйте еще раз.",
+                    "❌ Error saving setting. Please try again.",
                     parse_mode="Markdown"
                 )
                 
         except Exception as e:
-            logger.error(f"Ошибка обработки пользовательского времени: {e}")
+            logger.error(f"Error handling custom time: {e}")
             await message.reply(
-                "❌ Произошла ошибка. Попробуйте еще раз.",
+                "❌ An error occurred. Please try again.",
                 parse_mode="Markdown"
             )
     
     async def handle_page_number(self, message: types.Message, state: FSMContext):
-        """Обработка ввода номера страницы"""
+        """Handles page number input"""
         try:
             user_id = message.from_user.id
             username = message.from_user.username or "unknown"
             page_text = message.text.strip()
             
-            # Логируем действие пользователя
+            # Log user action
             BotLogger.log_user_action(user_id, username, f"page_number_input: {page_text}")
             
-            # Проверяем, что введено число
+            # Check if input is a number
             try:
                 page_number = int(page_text)
             except ValueError:
                 await message.reply(
-                    "❌ **Неверный формат!**\n\n"
-                    "Пожалуйста, введите номер страницы (число)",
+                    "❌ **Invalid format!**\n\n"
+                    "Please enter a page number (a digit)",
                     parse_mode="Markdown"
                 )
                 return
             
-            # Проверяем диапазон страниц
+            # Check page range
             total_pages = self.bot.pdf_reader.get_total_pages()
             if page_number < 1 or page_number > total_pages:
                 await message.reply(
-                    f"❌ **Неверный номер страницы!**\n\n"
-                    f"Введите номер от 1 до {total_pages}",
+                    f"❌ **Invalid page number!**\n\n"
+                    f"Please enter a number from 1 to {total_pages}",
                     parse_mode="Markdown"
                 )
                 return
             
-            # Обновляем текущую страницу в базе данных
+            # Update current page in database
             self.bot.db.set_current_page(user_id, page_number)
             
-            # Получаем данные для отображения
+            # Get data for display
             user_data = self.bot.db.get_user_data(user_id)
             current_page = user_data.get("current_page", 1)
             
             await message.reply(
-                f"✅ **Переход к странице {page_number}**\n\n"
-                f"📄 Текущая страница: {current_page} из {total_pages}",
+                f"✅ **Navigated to page {page_number}**\n\n"
+                f"📄 Current page: {current_page} of {total_pages}",
                 reply_markup=self.keyboards.navigation_menu(current_page, total_pages),
                 parse_mode="Markdown"
             )
             await state.clear()
                 
         except Exception as e:
-            logger.error(f"Ошибка обработки номера страницы: {e}")
+            logger.error(f"Error handling page number: {e}")
             await message.reply(
-                "❌ Произошла ошибка. Попробуйте еще раз.",
+                "❌ An error occurred. Please try again.",
                 parse_mode="Markdown"
             )
     
     async def handle_regular_message(self, message: types.Message):
-        """Обработка обычных текстовых сообщений"""
+        """Handles regular text messages"""
         try:
             user_id = message.from_user.id
             username = message.from_user.username or "unknown"
             text = message.text
             
-            # Логируем сообщение пользователя
+            # Log user message
             BotLogger.log_user_action(user_id, username, f"message: {text[:50]}...")
             
-            # Проверяем, является ли сообщение командой
+            # Check if the message is a command
             if text.startswith('/'):
-                # Команды обрабатываются отдельными хендлерами
+                # Commands are handled by separate handlers
                 return
             
-            # Для обычных сообщений показываем главное меню
+            # For regular messages, show the main menu
             await message.reply(
-                "🤖 **Привет!**\n\n"
-                "Я бот для отправки страниц PDF книг.\n"
-                "Используйте кнопки ниже для навигации:",
+                "🤖 **Hello!**\n\n"
+                "I am a bot for sending PDF book pages.\n"
+                "Use the buttons below for navigation:",
                 reply_markup=self.keyboards.main_menu(),
                 parse_mode="Markdown"
             )
             
         except Exception as e:
-            logger.error(f"Ошибка обработки обычного сообщения: {e}")
+            logger.error(f"Error handling regular message: {e}")
             await message.reply(
-                "❌ Произошла ошибка. Попробуйте еще раз.",
+                "❌ An error occurred. Please try again.",
                 parse_mode="Markdown"
             )
     
     async def handle_state_message(self, message: types.Message, state: FSMContext):
-        """Обработка сообщений в зависимости от состояния FSM"""
+        """Handles messages based on FSM state"""
         try:
             current_state = await state.get_state()
             
@@ -163,8 +163,8 @@ class MessageHandler:
                 await self.handle_regular_message(message)
                 
         except Exception as e:
-            logger.error(f"Ошибка обработки сообщения с состоянием: {e}")
+            logger.error(f"Error handling state message: {e}")
             await message.reply(
-                "❌ Произошла ошибка. Попробуйте еще раз.",
+                "❌ An error occurred. Please try again.",
                 parse_mode="Markdown"
             )

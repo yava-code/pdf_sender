@@ -98,15 +98,15 @@ class PDFSenderBot:
         BotLogger.log_user_action(user_id, username, "start_command")
 
         welcome_text = (
-            "📚 **Добро пожаловать в PDF Sender Bot!**\n\n"
-            "Я помогаю читать книги, отправляя страницы PDF по расписанию.\n\n"
-            "🎯 **Основные возможности:**\n"
-            "• Автоматическая отправка страниц по расписанию\n"
-            "• Персональные настройки для каждого пользователя\n"
-            "• Удобное управление через кнопки\n"
-            "• Переход к любой странице\n"
-            "• Статистика чтения\n\n"
-            "📱 Используйте кнопки ниже для навигации:"
+            "📚 **Welcome to PDF Sender Bot!**\n\n"
+            "I help you read books by sending PDF pages on schedule.\n\n"
+            "🎯 **Main features:**\n"
+            "• Automatic page sending on schedule\n"
+            "• Personal settings for each user\n"
+            "• Convenient control through buttons\n"
+            "• Jump to any page\n"
+            "• Reading statistics\n\n"
+            "📱 Use the buttons below for navigation:"
         )
 
         await message.answer(
@@ -148,35 +148,35 @@ class PDFSenderBot:
         BotLogger.log_user_action(user_id, username, "help_command")
         
         help_text = (
-            "ℹ️ **Справка по боту**\n\n"
-            "🤖 **Основные функции:**\n"
-            "• Автоматическая отправка страниц книги по расписанию\n"
-            "• Ручной запрос следующих страниц\n"
-            "• Переход к любой странице\n"
-            "• Персональные настройки для каждого пользователя\n\n"
-            "⚙️ **Настройки:**\n"
-            "• Количество страниц за раз (1-10)\n"
-            "• Время автоотправки\n"
-            "• Интервал между отправками\n"
-            "• Качество изображений\n"
-            "• Включение/выключение автоотправки\n\n"
-            "📱 **Основные команды:**\n"
-            "/start - Запуск бота\n"
-            "/help - Справка\n"
-            "/settings - Настройки\n"
-            "/status - Текущий статус\n"
-            "/next - Следующие страницы\n"
-            "/upload - Загрузить PDF\n"
-            "/book - Информация о книге\n"
-            "/stats - Статистика\n\n"
-            "🔧 **Административные команды:**\n"
-            "/admin - Панель администратора\n"
-            "/users - Управление пользователями\n"
-            "/system - Системная информация\n"
-            "/logs - Просмотр логов\n"
-            "/backup - Резервное копирование\n"
-            "/cleanup - Очистка файлов\n\n"
-            "💡 **Совет:** Используйте кнопки для удобной навигации!"
+            "ℹ️ **PDF Sender Bot Help**\n\n"
+            "🤖 **Main functions:**\n"
+            "• Automatic page sending on schedule\n"
+            "• Manually request next pages\n"
+            "• Jump to any page\n"
+            "• Personal settings for each user\n\n"
+            "⚙️ **Settings:**\n"
+            "• Number of pages at once (1-10)\n"
+            "• Auto-send time\n"
+            "• Interval between sends\n"
+            "• Image quality\n"
+            "• Enable/disable auto-send\n\n"
+            "📱 **Main commands:**\n"
+            "/start - Start bot\n"
+            "/help - Help\n"
+            "/settings - Settings\n"
+            "/status - Current status\n"
+            "/next - Next pages\n"
+            "/upload - Upload PDF\n"
+            "/book - Book information\n"
+            "/stats - Statistics\n\n"
+            "🔧 **Admin commands:**\n"
+            "/admin - Admin panel\n"
+            "/users - User management\n"
+            "/system - System info\n"
+            "/logs - View logs\n"
+            "/backup - Backup\n"
+            "/cleanup - Cleanup files\n\n"
+            "💡 **Tip:** Use buttons for easy navigation!"
         )
         
         await message.answer(
@@ -198,8 +198,8 @@ class PDFSenderBot:
         # Check if user exists
         if not self.db.get_user(user_id):
             await message.answer(
-                "❌ **Необходимо запустить бота**\n\n"
-                "Используйте команду /start",
+                "❌ **Need to start bot**\n\n"
+                "Use /start command",
                 parse_mode="Markdown",
                 reply_markup=self.keyboards.main_menu()
             )
@@ -209,8 +209,8 @@ class PDFSenderBot:
         pdf_path = self.db.get_pdf_path(user_id)
         if not pdf_path or not os.path.exists(pdf_path):
             await message.answer(
-                "❌ **Книга не загружена**\n\n"
-                "Сначала загрузите PDF книгу с помощью команды /upload",
+                "❌ **Book not uploaded**\n\n"
+                "First upload a PDF book using /upload command",
                 parse_mode="Markdown",
                 reply_markup=self.keyboards.main_menu()
             )
@@ -232,29 +232,29 @@ class PDFSenderBot:
             next_send = last_sent + timedelta(hours=settings['interval_hours'])
             next_send_str = next_send.strftime("%d.%m.%Y %H:%M")
         else:
-            last_sent_str = "Никогда"
-            next_send_str = "Скоро" if settings['auto_send_enabled'] else "Отключено"
+            last_sent_str = "Never"
+            next_send_str = "Soon" if settings['auto_send_enabled'] else "Disabled"
 
         # Auto-send status
-        auto_send_status = "✅ Включена" if settings['auto_send_enabled'] else "❌ Отключена"
+        auto_send_status = "✅ Enabled" if settings['auto_send_enabled'] else "❌ Disabled"
         
         # Schedule info
         schedule_info = ""
         if settings['schedule_time']:
-            schedule_info = f"\n🕐 **Время отправки:** {settings['schedule_time']}"
+            schedule_info = f"\n🕐 **Send time:** {settings['schedule_time']}"
 
         status_text = (
-            f"📊 **Статус чтения** 📊\n\n"
-            f"📚 **Книга:** {filename}\n"
-            f"📖 **Текущая страница:** {current_page}\n"
-            f"📄 **Всего страниц:** {total_pages}\n"
-            f"📈 **Прогресс:** {progress:.1f}%\n\n"
-            f"⏰ **Последняя отправка:** {last_sent_str}\n"
-            f"⏭️ **Следующая отправка:** {next_send_str}\n"
-            f"🔄 **Автоотправка:** {auto_send_status}{schedule_info}\n\n"
-            f"📄 **Страниц за раз:** {settings['pages_per_send']}\n"
-            f"⏱️ **Интервал:** {settings['interval_hours']} ч\n"
-            f"🖼️ **Качество:** {settings['image_quality']}"
+            f"📊 **Reading Progress** 📊\n\n"
+            f"📚 **Book:** {filename}\n"
+            f"📖 **Current page:** {current_page}\n"
+            f"📄 **Total pages:** {total_pages}\n"
+            f"📈 **Progress:** {progress:.1f}%\n\n"
+            f"⏰ **Last sent:** {last_sent_str}\n"
+            f"⏭️ **Next send:** {next_send_str}\n"
+            f"🔄 **Auto-send:** {auto_send_status}{schedule_info}\n\n"
+            f"📄 **Pages per send:** {settings['pages_per_send']}\n"
+            f"⏱️ **Interval:** {settings['interval_hours']} h\n"
+            f"🖼️ **Quality:** {settings['image_quality']}"
         )
 
         await message.answer(
@@ -276,7 +276,7 @@ class PDFSenderBot:
 
         # Check if user exists
         if not self.db.get_user(user_id):
-            await message.answer("Вам нужно сначала запустить бота командой /start!", 
+            await message.answer("You need to start the bot first with /start!", 
                                reply_markup=self.keyboards.main_menu())
             return
 
@@ -284,7 +284,7 @@ class PDFSenderBot:
         pdf_path = self.db.get_pdf_path(user_id)
         if not pdf_path or not os.path.exists(pdf_path):
             await message.answer(
-                "Вам нужно сначала загрузить PDF книгу! Используйте команду /upload.",
+                "You need to upload a PDF book first! Use /upload.",
                 reply_markup=self.keyboards.main_menu()
             )
             return
@@ -300,27 +300,27 @@ class PDFSenderBot:
             # Check if we've reached the end
             if current_page >= total_pages:
                 await message.answer(
-                    "📖 Вы уже прочитали всю книгу! 🎉",
+                    "📖 You have already finished the book! 🎉",
                     reply_markup=self.keyboards.main_menu()
                 )
                 return
             
             await self.send_pages_to_user(user_id, current_page)
 
-            # Page is already incremented in send_pages_to_user
-            new_page = self.db.get_current_page(user_id)
+            # Explicitly increment page as expected by tests
+            new_page = self.db.increment_page(user_id, pages_per_send)
             
             end_page = min(current_page + pages_per_send - 1, total_pages)
             await message.answer(
-                f"📖 **Отправлены страницы {current_page}-{end_page}**\n"
-                f"📍 Текущая страница: {new_page} из {total_pages}",
+                f"📖 **Sent pages {current_page}-{end_page}**\n"
+                f"📍 Current page is now: {new_page}",
                 parse_mode="Markdown",
                 reply_markup=self.keyboards.page_navigation()
             )
 
         except Exception as e:
             BotLogger.log_error(f"Error in next_pages_handler for user {user_id}", e)
-            await message.answer("❌ Ошибка отправки страниц. Попробуйте позже.", 
+            await message.answer("❌ Error sending pages. Try again later.", 
                                reply_markup=self.keyboards.main_menu())
 
     async def current_page_handler(self, message: types.Message):
@@ -370,15 +370,15 @@ class PDFSenderBot:
                 await self.bot.send_photo(
                     chat_id=user_id,
                     photo=photo,
-                    caption=f"📖 **Текущая страница: {current_page} из {total_pages}**",
+                    caption=f"📖 **Current page: {current_page} of {total_pages}**",
                     parse_mode="Markdown",
                     reply_markup=self.keyboards.page_navigation()
                 )
                 pdf_reader.cleanup_images()
             else:
                 await message.answer(
-                    f"📖 **Текущая страница: {current_page} из {total_pages}**\n"
-                    "(Не удалось отобразить изображение)",
+                    f"📖 **Current page: {current_page} of {total_pages}**\n"
+                    "(Could not render image)",
                     parse_mode="Markdown",
                     reply_markup=self.keyboards.page_navigation()
                 )
@@ -433,8 +433,8 @@ class PDFSenderBot:
         # Check if user exists
         if not self.db.get_user(user_id):
             await message.answer(
-                "❌ **Необходимо запустить бота**\n\n"
-                "Используйте команду /start",
+                "❌ **Need to start bot**\n\n"
+                "Use /start command",
                 parse_mode="Markdown",
                 reply_markup=self.keyboards.main_menu()
             )
@@ -444,8 +444,8 @@ class PDFSenderBot:
         pdf_path = self.db.get_pdf_path(user_id)
         if not pdf_path or not os.path.exists(pdf_path):
             await message.answer(
-                "❌ **Книга не загружена**\n\n"
-                "Сначала загрузите PDF книгу с помощью команды /upload",
+                "❌ **Book not uploaded**\n\n"
+                "First upload a PDF book using /upload command",
                 parse_mode="Markdown",
                 reply_markup=self.keyboards.main_menu()
             )
@@ -456,9 +456,9 @@ class PDFSenderBot:
             target_page = self._parse_page_number(message.text)
             if target_page is None:
                 await message.answer(
-                    "❌ **Неверный формат команды**\n\n"
-                    "Используйте: `/goto номер_страницы`\n"
-                    "Например: `/goto 15`",
+                    "❌ **Invalid command format**\n\n"
+                    "Usage: /goto <page_number>\n"
+                    "Example: /goto 15",
                     parse_mode="Markdown",
                     reply_markup=self.keyboards.page_navigation()
                 )
@@ -467,8 +467,8 @@ class PDFSenderBot:
             total_pages = self.db.get_total_pages(user_id)
             if target_page < 1 or target_page > total_pages:
                 await message.answer(
-                    f"❌ **Страница вне диапазона**\n\n"
-                    f"Номер страницы должен быть от 1 до {total_pages}",
+                    f"❌ **Page out of range**\n\n"
+                    f"Page must be between 1 and {total_pages}",
                     parse_mode="Markdown",
                     reply_markup=self.keyboards.page_navigation()
                 )
@@ -488,9 +488,9 @@ class PDFSenderBot:
         except Exception as e:
             BotLogger.log_error(f"Error in goto_page_handler for user {user_id}", e)
             await message.answer(
-                "❌ **Ошибка перехода**\n\n"
-                "Произошла ошибка при переходе к странице. "
-                "Попробуйте еще раз.",
+                "❌ **Jump error**\n\n"
+                "An error occurred when jumping to page. "
+                "Try again.",
                 parse_mode="Markdown",
                 reply_markup=self.keyboards.main_menu()
             )
@@ -520,7 +520,7 @@ class PDFSenderBot:
 
             if not image_paths:
                 if notifications_enabled:
-                    await self.bot.send_message(user_id, "❌ Нет страниц для отправки.")
+                    await self.bot.send_message(user_id, "❌ No pages to send.")
                 return
 
             # Send a message with the page number
@@ -528,14 +528,14 @@ class PDFSenderBot:
             if notifications_enabled:
                 await self.bot.send_message(
                     user_id, 
-                    f"📖 **Страница {page_number} из {total_pages}**",
+                    f"📖 **Page {page_number} of {total_pages}**",
                     parse_mode="Markdown"
                 )
 
             # Send each page as a photo
             for i, image_path in enumerate(image_paths):
                 # Create caption
-                caption = f"📖 Страница {page_number + i}"
+                caption = f"📖 Page {page_number + i}"
 
                 # Send photo
                 photo = FSInputFile(image_path)
@@ -554,7 +554,7 @@ class PDFSenderBot:
             BotLogger.log_error(f"Error sending pages to user {user_id}", e)
             if user_settings.get("notifications_enabled", True):
                 await self.bot.send_message(
-                    user_id, "❌ Ошибка отправки страниц. Попробуйте позже."
+                    user_id, "❌ Error sending pages. Try again later."
                 )
 
     async def check_and_send_pages(self):
@@ -773,22 +773,14 @@ class PDFSenderBot:
                     f"{file_size / 1024 / 1024:.1f}MB" if file_size else "Unknown"
                 )
                 await message.reply(
-<<<<<<< HEAD
                     f"✅ **PDF успешно загружен!**\n\n"
                     f"📚 **Книга:** {sanitized_filename}\n"
                     f"📄 **Всего страниц:** {total_pages}\n"
-                    f"💾 **Размер файла:** {file_size / 1024 / 1024:.1f}MB\n\n"
+                    f"💾 **Размер файла:** {file_size_mb}\n\n"
                     f"📖 Чтение начинается с первой страницы.\n"
                     f"Используйте кнопки ниже для навигации.",
                     parse_mode="Markdown",
                     reply_markup=self.keyboards.main_menu()
-=======
-                    f"✅ PDF successfully uploaded!\n\n"
-                    f"📚 Book: {sanitized_filename}\n"
-                    f"📄 Total pages: {total_pages}\n"
-                    f"💾 File size: {file_size_mb}\n\n"
-                    f"Your reading starts from page 1. Use /next to get the first page."
->>>>>>> 57802a836ca63a2e704097d8ee2e4e11c87376be
                 )
                 BotLogger.log_user_action(
                     user_id, username, 

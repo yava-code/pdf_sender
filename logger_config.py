@@ -87,7 +87,7 @@ class BotLogger:
     
     @staticmethod
     def get_recent_logs(count: int = 50):
-        """Получить последние записи из лог файла"""
+        """Retrieves recent log entries from the log file"""
         log_file = Path("logs") / "bot.log"
         logs = []
         
@@ -96,13 +96,13 @@ class BotLogger:
                 with open(log_file, 'r', encoding='utf-8') as f:
                     lines = f.readlines()
                     
-                # Берем последние строки
+                # Get the last lines
                 recent_lines = lines[-count:] if len(lines) > count else lines
                 
                 for line in recent_lines:
                     line = line.strip()
                     if line:
-                        # Парсим строку лога
+                        # Parse the log line
                         parts = line.split(' - ', 3)
                         if len(parts) >= 4:
                             timestamp = parts[0]
@@ -117,7 +117,7 @@ class BotLogger:
                                 'message': message
                             })
                         else:
-                            # Если не удалось распарсить, добавляем как есть
+                            # If parsing fails, add as is
                             logs.append({
                                 'timestamp': 'Unknown',
                                 'name': 'Unknown',

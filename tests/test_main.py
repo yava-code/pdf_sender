@@ -25,7 +25,7 @@ class TestPDFSenderBot:
             "main.DatabaseManager"
         ) as mock_db, patch("main.PDFReader") as mock_pdf_reader, patch(
             "main.PDFScheduler"
-        ) as mock_scheduler:
+        ) as mock_scheduler, patch("main.UserSettings") as mock_user_settings:
 
             # Setup mocks
             mock_bot_instance = Mock()
@@ -33,12 +33,14 @@ class TestPDFSenderBot:
             mock_db_instance = Mock()
             mock_pdf_reader_instance = Mock()
             mock_scheduler_instance = Mock()
+            mock_user_settings_instance = Mock()
 
             mock_bot.return_value = mock_bot_instance
             mock_dp.return_value = mock_dp_instance
             mock_db.return_value = mock_db_instance
             mock_pdf_reader.return_value = mock_pdf_reader_instance
             mock_scheduler.return_value = mock_scheduler_instance
+            mock_user_settings.return_value = mock_user_settings_instance
 
             yield {
                 "bot": mock_bot_instance,
@@ -46,6 +48,7 @@ class TestPDFSenderBot:
                 "db": mock_db_instance,
                 "pdf_reader": mock_pdf_reader_instance,
                 "scheduler": mock_scheduler_instance,
+                "user_settings": mock_user_settings_instance,
             }
 
     @pytest.fixture
@@ -116,10 +119,16 @@ class TestPDFSenderBot:
         mock_dependencies["db"].get_user.return_value = {"id": 12345}
         mock_dependencies["db"].get_pdf_path.return_value = "test.pdf"
         mock_dependencies["db"].get_current_page.return_value = 5
+        mock_dependencies["db"].get_total_pages.return_value = 100
         mock_dependencies["db"].increment_page.return_value = 8
 
         # Mock send_pages_to_user method
         pdf_bot.send_pages_to_user = AsyncMock()
+
+        # Mock user settings
+        mock_dependencies["user_settings"].get_user_settings.return_value = {
+            "pages_per_send": 3
+        }
 
         # Mock os.path.exists to return True for the PDF path
         with patch("main.os.path.exists", return_value=True):
@@ -325,13 +334,28 @@ class TestPDFSenderBot:
             assert increment == 3
             return 13
 
+        def mock_get_total_pages(user_id):
+            return 100
+
         mock_dependencies["db"].get_pdf_path.side_effect = mock_get_pdf_path
         mock_dependencies["db"].get_last_sent.side_effect = mock_get_last_sent
         mock_dependencies["db"].get_current_page.side_effect = mock_get_current_page
+        mock_dependencies["db"].get_total_pages.side_effect = mock_get_total_pages
         mock_dependencies["db"].increment_page.side_effect = mock_increment_page
 
         # Mock send_pages_to_user method
         pdf_bot.send_pages_to_user = AsyncMock()
+
+        # Mock user settings to enable auto-send and use interval-based sending
+        def mock_get_user_settings(user_id):
+            return {
+                "auto_send_enabled": True,
+                "schedule_time": "disabled",
+                "interval_hours": 6,
+                "pages_per_send": 3
+            }
+        
+        mock_dependencies["user_settings"].get_user_settings.side_effect = mock_get_user_settings
 
         # Mock os.path.exists to return True for all PDF paths
         with patch("main.os.path.exists", return_value=True):

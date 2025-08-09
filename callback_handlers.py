@@ -15,13 +15,13 @@ logger = logging.getLogger(__name__)
 
 
 class SettingsStates(StatesGroup):
-    """Состояния для настройки параметров"""
+    """States for setting parameters"""
     waiting_for_custom_time = State()
     waiting_for_page_number = State()
 
 
 class CallbackHandler:
-    """Обработчик callback запросов от inline клавиатур"""
+    """Handles callback queries from inline keyboards"""
     
     def __init__(self, bot_instance: 'PDFSenderBot'):
         self.bot = bot_instance
@@ -29,16 +29,16 @@ class CallbackHandler:
         self.keyboards = BotKeyboards()
     
     async def handle_callback(self, callback: types.CallbackQuery, state: FSMContext):
-        """Основной обработчик callback запросов"""
+        """Main handler for callback queries"""
         try:
             data = callback.data
             user_id = callback.from_user.id
             username = callback.from_user.username or "unknown"
             
-            # Логируем действие пользователя
+            # Log user action
             BotLogger.log_user_action(user_id, username, f"callback: {data}")
             
-            # Маршрутизация callback запросов
+            # Route callback queries
             if data == "main_menu":
                 await self._show_main_menu(callback)
             elif data == "settings_menu":
@@ -107,32 +107,32 @@ class CallbackHandler:
             elif data == "cleanup_run":
                 await self._handle_cleanup_run(callback)
             else:
-                await callback.answer("Неизвестная команда", show_alert=True)
+                await callback.answer("Unknown command", show_alert=True)
             
         except Exception as e:
-            logger.error(f"Ошибка обработки callback {callback.data}: {e}")
-            await callback.answer("Произошла ошибка. Попробуйте еще раз.", show_alert=True)
+            logger.error(f"Error processing callback {callback.data}: {e}")
+            await callback.answer("An error occurred. Please try again.", show_alert=True)
     
     async def _show_main_menu(self, callback: types.CallbackQuery):
-        """Показать главное меню"""
+        """Show main menu"""
         await callback.message.edit_text(
-            "🏠 **Главное меню**\n\nВыберите действие:",
+            "🏠 **Main Menu**\n\nSelect an action:",
             reply_markup=self.keyboards.main_menu(),
             parse_mode="Markdown"
         )
         await callback.answer()
     
     async def _show_admin_menu(self, callback: types.CallbackQuery):
-        """Показать административное меню"""
+        """Show admin menu"""
         admin_text = (
-            "🔧 **Панель администратора** 🔧\n\n"
-            "📊 **Доступные команды:**\n"
-            "/users - Управление пользователями\n"
-            "/system - Системная информация\n"
-            "/logs - Просмотр логов\n"
-            "/backup - Резервное копирование\n"
-            "/cleanup - Очистка файлов\n\n"
-            "⚙️ **Быстрые действия:**"
+            "🔧 **Admin Panel** 🔧\n\n"
+            "📊 **Available commands:**\n"
+            "/users - User management\n"
+            "/system - System information\n"
+            "/logs - View logs\n"
+            "/backup - Backup\n"
+            "/cleanup - Clean up files\n\n"
+            "⚙️ **Quick actions:**"
         )
         
         await callback.message.edit_text(
@@ -142,52 +142,52 @@ class CallbackHandler:
         )
     
     async def _handle_admin_users(self, callback: types.CallbackQuery):
-        """Обработка кнопки управления пользователями"""
+        """Handle user management button"""
         await self.bot.users_command(callback.message)
     
     async def _handle_admin_system(self, callback: types.CallbackQuery):
-        """Обработка кнопки системной информации"""
+        """Handle system information button"""
         await self.bot.system_command(callback.message)
     
     async def _handle_admin_logs(self, callback: types.CallbackQuery):
-        """Обработка кнопки просмотра логов"""
+        """Handle view logs button"""
         await self.bot.logs_command(callback.message)
     
     async def _handle_admin_backup(self, callback: types.CallbackQuery):
-        """Обработка кнопки резервного копирования"""
+        """Handle backup button"""
         await self.bot.backup_command(callback.message)
     
     async def _handle_admin_cleanup(self, callback: types.CallbackQuery):
-        """Обработка кнопки очистки"""
+        """Handle cleanup button"""
         await self.bot.cleanup_command(callback.message)
     
     async def _handle_system_refresh(self, callback: types.CallbackQuery):
-        """Обновить системную информацию"""
+        """Refresh system information"""
         await self.bot.system_command(callback.message)
     
     async def _handle_logs_refresh(self, callback: types.CallbackQuery):
-        """Обновить логи"""
+        """Refresh logs"""
         await self.bot.logs_command(callback.message)
     
     async def _handle_backup_create(self, callback: types.CallbackQuery):
-        """Создать резервную копию"""
+        """Create backup"""
         await self.bot.backup_command(callback.message)
     
     async def _handle_cleanup_run(self, callback: types.CallbackQuery):
-        """Запустить очистку"""
+        """Run cleanup"""
         await self.bot.cleanup_command(callback.message)
     
     async def _show_settings_menu(self, callback: types.CallbackQuery):
-        """Показать меню настроек"""
+        """Show settings menu"""
         await callback.message.edit_text(
-            "⚙️ **Настройки бота**\n\nВыберите параметр для изменения:",
+            "⚙️ **Bot Settings**\n\nSelect a parameter to change:",
             reply_markup=self.keyboards.settings_menu(),
             parse_mode="Markdown"
         )
         await callback.answer()
     
     async def _show_user_settings(self, callback: types.CallbackQuery):
-        """Показать текущие настройки пользователя"""
+        """Show current user settings"""
         user_id = callback.from_user.id
         settings_text = self.user_settings.get_settings_summary(user_id)
         
