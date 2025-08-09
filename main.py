@@ -73,6 +73,7 @@ class PDFSenderBot:
         self.dp.message.register(self.system_command, Command("system"))
         self.dp.message.register(self.backup_command, Command("backup"))
         self.dp.message.register(self.cleanup_command, Command("cleanup"))
+        self.dp.message.register(self.leaderboard_command, Command("leaderboard"))
 
         # Callback query handlers
         self.dp.callback_query.register(self.callback_handler.handle_callback)
@@ -539,7 +540,12 @@ class PDFSenderBot:
 
                 # Send photo
                 photo = FSInputFile(image_path)
-                await self.bot.send_photo(chat_id=user_id, photo=photo, caption=caption)
+                await self.bot.send_photo(
+                    chat_id=user_id,
+                    photo=photo,
+                    caption=caption,
+                    reply_markup=self.keyboards.read_button(page_number + i),
+                )
 
             # Update last sent time and current page
             self.db.update_last_sent(user_id)
@@ -556,6 +562,24 @@ class PDFSenderBot:
                 await self.bot.send_message(
                     user_id, "❌ Error sending pages. Try again later."
                 )
+
+    async def leaderboard_command(self, message: types.Message):
+        """Show leaderboard of top readers"""
+        if message.from_user is None:
+            return
+        user_id = message.from_user.id
+        username = message.from_user.username or "unknown"
+        BotLogger.log_user_action(user_id, username, "leaderboard_command")
+        leaders = self.db.get_leaderboard()
+        if not leaders:
+            await message.answer("Leaderboard is empty")
+            return
+        lines = ["🏆 *Leaderboard*:"]
+        for idx, user in enumerate(leaders, start=1):
+            name = user.get("username") or str(user.get("id"))
+            points = user.get("points", 0)
+            lines.append(f"{idx}. {name} — {points} points")
+        await message.answer("\n".join(lines), parse_mode="Markdown")
 
     async def check_and_send_pages(self):
         """Check and send pages to users based on their personal settings"""

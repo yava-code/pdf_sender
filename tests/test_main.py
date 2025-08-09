@@ -65,6 +65,8 @@ class TestPDFSenderBot:
             mock_callback.return_value = mock_callback_instance
             mock_message_handler.return_value = mock_message_handler_instance
 
+            mock_keyboards_instance.read_button.return_value = None
+
             yield {
                 "bot": mock_bot_instance,
                 "dp": mock_dp_instance,
@@ -327,6 +329,19 @@ class TestPDFSenderBot:
         mock_dependencies["bot"].send_message.assert_called_once_with(
             12345, "❌ No pages to send."
         )
+
+    @pytest.mark.asyncio
+    async def test_leaderboard_command(self, pdf_bot, mock_message, mock_dependencies):
+        """Test leaderboard command"""
+        mock_dependencies["db"].get_leaderboard.return_value = [
+            {"id": 1, "username": "u1", "points": 5},
+            {"id": 2, "username": "u2", "points": 3},
+        ]
+        await pdf_bot.leaderboard_command(mock_message)
+        mock_message.answer.assert_called_once()
+        call_args = mock_message.answer.call_args[0][0]
+        assert "Leaderboard" in call_args
+        assert "u1 — 5 points" in call_args
 
     @pytest.mark.asyncio
     async def test_check_and_send_pages(self, pdf_bot, mock_dependencies):

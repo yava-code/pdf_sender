@@ -51,6 +51,7 @@ class DatabaseManager:
             "total_pages": 0,
             "pdf_path": config.pdf_path,  # Default PDF path
             "last_sent": None,
+            "points": 0,
         }
 
     def get_current_page(self, user_id: int) -> int:
@@ -105,6 +106,7 @@ class DatabaseManager:
         pdf_path: Optional[str] = None,
         current_page: int = 1,
         total_pages: int = 0,
+        points: int = 0,
     ):
         """Add user to database or update existing user"""
         data = self.load_data()
@@ -120,6 +122,7 @@ class DatabaseManager:
                     user["pdf_path"] = pdf_path
                 user["current_page"] = current_page
                 user["total_pages"] = total_pages
+                user["points"] = user.get("points", 0)  # ensure field exists
                 self.save_data(data)
                 return
 
@@ -133,6 +136,7 @@ class DatabaseManager:
                 "total_pages": total_pages,
                 "pdf_path": pdf_path or config.pdf_path,
                 "last_sent": None,
+                "points": points,
             }
         )
 
@@ -197,3 +201,29 @@ class DatabaseManager:
                 return None
 
         return None
+
+    def get_points(self, user_id: int) -> int:
+        """Get user's points"""
+        user_data = self.get_user_data(user_id)
+        return user_data.get("points", 0)
+
+    def increment_points(self, user_id: int, increment: int = 1) -> int:
+        """Increment user's points and return new total"""
+        data = self.load_data()
+        users = data.get("users", [])
+
+        for user in users:
+            if user["id"] == user_id:
+                user["points"] = user.get("points", 0) + increment
+                self.save_data(data)
+                return user["points"]
+
+        # If user not found, add them with starting points
+        self.add_user(user_id, points=increment)
+        return increment
+
+    def get_leaderboard(self, top_n: int = 10) -> List[Dict[str, Any]]:
+        """Get top users by points"""
+        users = self.get_users()
+        sorted_users = sorted(users, key=lambda u: u.get("points", 0), reverse=True)
+        return sorted_users[:top_n]

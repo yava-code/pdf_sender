@@ -27,7 +27,10 @@ class BotKeyboards:
             InlineKeyboardButton(text="ℹ️ Help", callback_data="help"),
             InlineKeyboardButton(text="🔧 Admin panel", callback_data="admin_menu")
         )
-        
+        builder.row(
+            InlineKeyboardButton(text="🏆 Leaderboard", callback_data="leaderboard")
+        )
+
         return builder.as_markup()
     
     @staticmethod
@@ -54,6 +57,15 @@ class BotKeyboards:
             InlineKeyboardButton(text="🔙 Back", callback_data="main_menu")
         )
         
+        return builder.as_markup()
+
+    @staticmethod
+    def read_button(page: int) -> InlineKeyboardMarkup:
+        """Button for confirming page read"""
+        builder = InlineKeyboardBuilder()
+        builder.row(
+            InlineKeyboardButton(text="✅ I read", callback_data=f"read_{page}")
+        )
         return builder.as_markup()
     
     @staticmethod

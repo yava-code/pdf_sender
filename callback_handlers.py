@@ -73,6 +73,8 @@ class CallbackHandler:
                 await self._send_next_pages(callback)
             elif data == "current_page":
                 await self._show_current_page(callback)
+            elif data == "leaderboard":
+                await self.bot.leaderboard_command(callback.message)
             elif data == "goto_page":
                 await self._request_page_number(callback, state)
             elif data.startswith("goto_page_"):
@@ -106,6 +108,8 @@ class CallbackHandler:
                 await self._handle_backup_create(callback)
             elif data == "cleanup_run":
                 await self._handle_cleanup_run(callback)
+            elif data.startswith("read_"):
+                await self._handle_page_read(callback, data)
             else:
                 await callback.answer("Unknown command", show_alert=True)
             
@@ -176,6 +180,17 @@ class CallbackHandler:
     async def _handle_cleanup_run(self, callback: types.CallbackQuery):
         """Run cleanup"""
         await self.bot.cleanup_command(callback.message)
+
+    async def _handle_page_read(self, callback: types.CallbackQuery, data: str):
+        """Handle page read confirmation"""
+        try:
+            user_id = callback.from_user.id
+            page = int(data.split("_")[1])
+            points = self.bot.db.increment_points(user_id)
+            await callback.answer(f"✅ Page {page} marked as read!\nPoints: {points}")
+        except Exception as e:
+            logger.error(f"Error processing read callback: {e}")
+            await callback.answer("Error saving progress", show_alert=True)
     
     async def _show_settings_menu(self, callback: types.CallbackQuery):
         """Show settings menu"""

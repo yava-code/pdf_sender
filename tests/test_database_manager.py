@@ -112,6 +112,16 @@ class TestDatabaseManager:
         users = db_manager.get_users()
         assert isinstance(users, list)
 
+    def test_points_and_leaderboard(self, db_manager):
+        """Test points increment and leaderboard"""
+        db_manager.add_user(1, "u1")
+        db_manager.add_user(2, "u2")
+        db_manager.increment_points(1, 5)
+        db_manager.increment_points(2, 3)
+        leaderboard = db_manager.get_leaderboard()
+        assert leaderboard[0]["id"] == 1
+        assert leaderboard[0]["points"] == 5
+
     def test_ensure_database_exists(self):
         """Test database creation when file doesn't exist"""
         with tempfile.TemporaryDirectory() as temp_dir:
