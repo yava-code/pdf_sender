@@ -16,10 +16,13 @@ logger = logging.getLogger(__name__)
 
 class FileValidator:
     """Validates uploaded files for security and compatibility"""
+    
+    def __init__(self, config: Optional[Config] = None):
+        """Initialize FileValidator with config"""
+        self.config = config or Config()
 
-    @staticmethod
     def validate_pdf_file(
-        file_path: str, file_size: Optional[int] = None
+        self, file_path: str, file_size: Optional[int] = None
     ) -> Tuple[bool, str]:
         """
         Validate a PDF file for upload
@@ -41,11 +44,12 @@ class FileValidator:
                 file_size = os.path.getsize(file_path)
 
             # Check file size limit
-            max_size_bytes = Config.MAX_FILE_SIZE_MB * 1024 * 1024
+            max_size_bytes = self.config.max_file_size
             if file_size > max_size_bytes:
+                max_size_mb = max_size_bytes // (1024 * 1024)
                 return (
                     False,
-                    f"File too large. Maximum size: {Config.MAX_FILE_SIZE_MB}MB",
+                    f"File too large. Maximum size: {max_size_mb}MB",
                 )
 
             # Check MIME type
@@ -96,8 +100,7 @@ class FileValidator:
             logger.error(f"Error during file validation: {e}")
             return False, "Error validating file"
 
-    @staticmethod
-    def validate_file_name(filename: str) -> Tuple[bool, str]:
+    def validate_file_name(self, filename: str) -> Tuple[bool, str]:
         """
         Validate filename for security
 

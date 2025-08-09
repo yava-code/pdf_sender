@@ -319,7 +319,7 @@ class PDFSenderBot:
             )
 
         except Exception as e:
-            BotLogger.log_error(f"Error in next_pages_handler for user {user_id}", e)
+            BotLogger.log_error(e, f"next_pages_handler for user {user_id}")
             await message.answer("❌ Error sending pages. Try again later.", 
                                reply_markup=self.keyboards.main_menu())
 
@@ -486,7 +486,7 @@ class PDFSenderBot:
             BotLogger.log_user_action(user_id, username, f"goto_page: {target_page}")
 
         except Exception as e:
-            BotLogger.log_error(f"Error in goto_page_handler for user {user_id}", e)
+            BotLogger.log_error(e, f"goto_page_handler for user {user_id}")
             await message.answer(
                 "❌ **Jump error**\n\n"
                 "An error occurred when jumping to page. "
@@ -551,7 +551,7 @@ class PDFSenderBot:
             logger.info(f"Sent {len(image_paths)} pages to user {user_id}")
 
         except Exception as e:
-            BotLogger.log_error(f"Error sending pages to user {user_id}", e)
+            BotLogger.log_error(e, f"sending pages to user {user_id}")
             if user_settings.get("notifications_enabled", True):
                 await self.bot.send_message(
                     user_id, "❌ Error sending pages. Try again later."
@@ -758,7 +758,7 @@ class PDFSenderBot:
                     parse_mode="Markdown",
                     reply_markup=self.keyboards.main_menu()
                 )
-                BotLogger.log_error(f"PDF validation failed for user {user_id}", validation_message)
+                BotLogger.log_error(Exception(validation_message), f"PDF validation failed for user {user_id}")
                 return
 
             # Create a PDFReader instance to validate and set the PDF
@@ -797,10 +797,10 @@ class PDFSenderBot:
                 # Clean up the file if there was an error
                 if os.path.exists(local_file_path):
                     os.remove(local_file_path)
-                BotLogger.log_error(f"PDF processing failed for user {user_id}", "set_pdf_for_user returned False")
+                BotLogger.log_error(Exception("set_pdf_for_user returned False"), f"PDF processing failed for user {user_id}")
 
         except Exception as e:
-            BotLogger.log_error(f"Error processing PDF upload for user {user_id}", e)
+            BotLogger.log_error(e, f"processing PDF upload for user {user_id}")
             await message.reply(
                 "❌ **Произошла ошибка**\n\n"
                 "При обработке вашего PDF произошла ошибка. "
@@ -964,7 +964,7 @@ class PDFSenderBot:
             )
 
         except Exception as e:
-            BotLogger.log_error(f"Error generating stats for user {user_id}", e)
+            BotLogger.log_error(e, f"generating stats for user {user_id}")
             await message.reply(
                 "❌ **Ошибка генерации статистики**\n\n"
                 "Произошла ошибка при создании статистики. "
@@ -1071,7 +1071,7 @@ class PDFSenderBot:
             )
 
         except Exception as e:
-            BotLogger.log_error(f"Error in users_command for user {user_id}", e)
+            BotLogger.log_error(e, f"users_command for user {user_id}")
             await message.answer(
                 "❌ **Ошибка получения данных пользователей**\n\n"
                 "Произошла ошибка при загрузке информации о пользователях.",
@@ -1133,7 +1133,7 @@ class PDFSenderBot:
                 parse_mode="Markdown"
             )
         except Exception as e:
-            BotLogger.log_error(f"Error in system_command for user {user_id}", e)
+            BotLogger.log_error(e, f"system_command for user {user_id}")
             await message.answer(
                 "❌ **Ошибка получения системной информации**\n\n"
                 "Произошла ошибка при сборе данных о системе.",
@@ -1186,7 +1186,7 @@ class PDFSenderBot:
             )
 
         except Exception as e:
-            BotLogger.log_error(f"Error in logs_command for user {user_id}", e)
+            BotLogger.log_error(e, f"logs_command for user {user_id}")
             await message.answer(
                 "❌ **Ошибка получения логов**\n\n"
                 "Произошла ошибка при чтении файлов логов.",
@@ -1258,7 +1258,7 @@ class PDFSenderBot:
             BotLogger.log_user_action(user_id, username, f"backup_created: {backup_filename}")
 
         except Exception as e:
-            BotLogger.log_error(f"Error in backup_command for user {user_id}", e)
+            BotLogger.log_error(e, f"backup_command for user {user_id}")
             await message.answer(
                 "❌ **Ошибка создания резервной копии**\n\n"
                 "Произошла ошибка при создании backup файла.",
@@ -1316,7 +1316,7 @@ class PDFSenderBot:
             BotLogger.log_user_action(user_id, username, f"manual_cleanup: {deleted_images + deleted_uploads} files deleted")
 
         except Exception as e:
-            BotLogger.log_error(f"Error in cleanup_command for user {user_id}", e)
+            BotLogger.log_error(e, f"cleanup_command for user {user_id}")
             await message.answer(
                 "❌ **Ошибка очистки**\n\n"
                 "Произошла ошибка при выполнении очистки файлов.",

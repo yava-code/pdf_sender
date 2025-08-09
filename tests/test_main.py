@@ -25,7 +25,11 @@ class TestPDFSenderBot:
             "main.DatabaseManager"
         ) as mock_db, patch("main.PDFReader") as mock_pdf_reader, patch(
             "main.PDFScheduler"
-        ) as mock_scheduler, patch("main.UserSettings") as mock_user_settings:
+        ) as mock_scheduler, patch("main.UserSettings") as mock_user_settings, patch(
+            "main.BotKeyboards"
+        ) as mock_keyboards, patch("main.CallbackHandler") as mock_callback, patch(
+            "main.MessageHandler"
+        ) as mock_message_handler:
 
             # Setup mocks
             mock_bot_instance = Mock()
@@ -34,6 +38,22 @@ class TestPDFSenderBot:
             mock_pdf_reader_instance = Mock()
             mock_scheduler_instance = Mock()
             mock_user_settings_instance = Mock()
+            mock_keyboards_instance = Mock()
+            mock_callback_instance = Mock()
+            mock_message_handler_instance = Mock()
+
+            # Configure user_settings mock to return proper dictionary
+            mock_user_settings_instance.get_user_settings.return_value = {
+                "pages_per_send": 3,
+                "schedule_time": "09:00",
+                "interval_hours": 6,
+                "auto_send_enabled": True,
+                "timezone": "UTC",
+                "image_quality": 85,
+                "notifications_enabled": True,
+                "created_at": "2024-01-01T00:00:00",
+                "last_updated": "2024-01-01T00:00:00"
+            }
 
             mock_bot.return_value = mock_bot_instance
             mock_dp.return_value = mock_dp_instance
@@ -41,6 +61,9 @@ class TestPDFSenderBot:
             mock_pdf_reader.return_value = mock_pdf_reader_instance
             mock_scheduler.return_value = mock_scheduler_instance
             mock_user_settings.return_value = mock_user_settings_instance
+            mock_keyboards.return_value = mock_keyboards_instance
+            mock_callback.return_value = mock_callback_instance
+            mock_message_handler.return_value = mock_message_handler_instance
 
             yield {
                 "bot": mock_bot_instance,
@@ -49,6 +72,9 @@ class TestPDFSenderBot:
                 "pdf_reader": mock_pdf_reader_instance,
                 "scheduler": mock_scheduler_instance,
                 "user_settings": mock_user_settings_instance,
+                "keyboards": mock_keyboards_instance,
+                "callback_handler": mock_callback_instance,
+                "message_handler": mock_message_handler_instance,
             }
 
     @pytest.fixture
@@ -108,9 +134,9 @@ class TestPDFSenderBot:
         mock_message.answer.assert_called_once()
         call_args = mock_message.answer.call_args[0][0]
         assert "Reading Progress" in call_args
-        assert "Current page: 10" in call_args
-        assert "Total pages: 100" in call_args
-        assert "Progress: 10.0%" in call_args
+        assert "Current page:** 10" in call_args
+        assert "Total pages:** 100" in call_args
+        assert "Progress:** 10.0%" in call_args
 
     @pytest.mark.asyncio
     async def test_next_pages_handler(self, pdf_bot, mock_message, mock_dependencies):
@@ -154,18 +180,15 @@ class TestPDFSenderBot:
         mock_dependencies["db"].get_pdf_path.return_value = "test.pdf"
         mock_dependencies["db"].get_current_page.return_value = 15
 
-        # Mock PDFReader instance
-        mock_pdf_reader_instance = Mock()
-        mock_pdf_reader_instance.extract_pages_as_images.return_value = ["page_15.png"]
-        mock_pdf_reader_instance.cleanup_images.return_value = None
+        # Configure the existing PDFReader mock
+        mock_dependencies["pdf_reader"].extract_pages_as_images.return_value = ["page_15.png"]
+        mock_dependencies["pdf_reader"].cleanup_images.return_value = None
 
         # Mock bot send_photo method
         mock_dependencies["bot"].send_photo = AsyncMock()
 
         # Mock os.path.exists to return True for the PDF path
-        with patch("main.os.path.exists", return_value=True), patch(
-            "main.PDFReader", return_value=mock_pdf_reader_instance
-        ):
+        with patch("main.os.path.exists", return_value=True):
             await pdf_bot.current_page_handler(mock_message)
 
         # Check that send_photo was called
@@ -261,14 +284,13 @@ class TestPDFSenderBot:
     @pytest.mark.asyncio
     async def test_send_pages_to_user(self, pdf_bot, mock_dependencies):
         """Test sending pages to user"""
-        # Setup mock PDFReader instance
-        mock_pdf_reader_instance = Mock()
-        mock_pdf_reader_instance.extract_pages_as_images.return_value = [
+        # Configure the existing PDFReader mock
+        mock_dependencies["pdf_reader"].extract_pages_as_images.return_value = [
             "page_1.png",
             "page_2.png",
             "page_3.png",
         ]
-        mock_pdf_reader_instance.cleanup_images.return_value = None
+        mock_dependencies["pdf_reader"].cleanup_images.return_value = None
 
         # Setup mock database returns
         mock_dependencies["db"].get_total_pages.return_value = 100
@@ -277,9 +299,7 @@ class TestPDFSenderBot:
         mock_dependencies["bot"].send_message = AsyncMock()
         mock_dependencies["bot"].send_photo = AsyncMock()
 
-        # Patch PDFReader constructor
-        with patch("main.PDFReader", return_value=mock_pdf_reader_instance):
-            await pdf_bot.send_pages_to_user(12345, 1)
+        await pdf_bot.send_pages_to_user(12345, 1)
 
         # Check that initial message was sent
         mock_dependencies["bot"].send_message.assert_called()
@@ -295,16 +315,13 @@ class TestPDFSenderBot:
     @pytest.mark.asyncio
     async def test_send_pages_to_user_no_pages(self, pdf_bot, mock_dependencies):
         """Test sending pages when no pages are available"""
-        # Setup mock PDFReader instance that returns no pages
-        mock_pdf_reader_instance = Mock()
-        mock_pdf_reader_instance.extract_pages_as_images.return_value = []
+        # Configure the existing PDFReader mock to return no pages
+        mock_dependencies["pdf_reader"].extract_pages_as_images.return_value = []
 
         # Mock bot methods
         mock_dependencies["bot"].send_message = AsyncMock()
 
-        # Patch PDFReader constructor
-        with patch("main.PDFReader", return_value=mock_pdf_reader_instance):
-            await pdf_bot.send_pages_to_user(12345, 1)
+        await pdf_bot.send_pages_to_user(12345, 1)
 
         # Check that error message was sent
         mock_dependencies["bot"].send_message.assert_called_once_with(

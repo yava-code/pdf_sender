@@ -6,7 +6,7 @@ import logging
 import os
 import time
 
-from config import Config
+from config import config
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +31,10 @@ class CleanupManager:
             Number of files deleted
         """
         if output_dir is None:
-            output_dir = Config.OUTPUT_DIR
+            output_dir = config.output_dir
 
         if retention_days is None:
-            retention_days = Config.IMAGE_RETENTION_DAYS
+            retention_days = config.cleanup_older_than_days
 
         if not os.path.exists(output_dir):
             return 0
@@ -92,7 +92,7 @@ class CleanupManager:
             Number of files deleted
         """
         if upload_dir is None:
-            upload_dir = Config.UPLOAD_DIR
+            upload_dir = config.upload_dir
 
         if not os.path.exists(upload_dir):
             return 0
@@ -149,8 +149,8 @@ class CleanupManager:
 
         try:
             # Check output directory
-            if os.path.exists(Config.OUTPUT_DIR):
-                for root, dirs, files in os.walk(Config.OUTPUT_DIR):
+            if os.path.exists(config.output_dir):
+                for root, dirs, files in os.walk(config.output_dir):
                     for file in files:
                         file_path = os.path.join(root, file)
                         try:
@@ -161,8 +161,8 @@ class CleanupManager:
                             pass
 
             # Check upload directory
-            if os.path.exists(Config.UPLOAD_DIR):
-                for root, dirs, files in os.walk(Config.UPLOAD_DIR):
+            if os.path.exists(config.upload_dir):
+                for root, dirs, files in os.walk(config.upload_dir):
                     for file in files:
                         file_path = os.path.join(root, file)
                         try:
