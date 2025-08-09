@@ -9,7 +9,7 @@ from typing import Optional, Tuple
 
 import fitz as pymupdf
 
-from config import Config
+from config import get_config, Config
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ class FileValidator:
     
     def __init__(self, config: Optional[Config] = None):
         """Initialize FileValidator with config"""
-        self.config = config or Config()
+        self.config = config or get_config()
 
     def validate_pdf_file(
         self, file_path: str, file_size: Optional[int] = None

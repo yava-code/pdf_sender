@@ -12,7 +12,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import FSInputFile
 
 from cleanup_manager import CleanupManager
-from config import Config
+from config import get_config, Config
 from database_manager import DatabaseManager
 from file_validator import FileValidator
 from pdf_reader import PDFReader
@@ -35,11 +35,11 @@ class UploadPDF(StatesGroup):
 
 class PDFSenderBot:
     def __init__(self):
-        Config.validate()
-        self.bot = Bot(token=Config.BOT_TOKEN)
+        config = get_config()
+        self.bot = Bot(token=config.bot_token)
         self.dp = Dispatcher(storage=MemoryStorage())
         self.db = DatabaseManager()
-        self.pdf_reader = PDFReader(output_dir=Config.OUTPUT_DIR, db=self.db)
+        self.pdf_reader = PDFReader(output_dir=config.output_dir, db=self.db)
         self.scheduler = PDFScheduler(self)
         
         # Initialize new components
@@ -49,7 +49,7 @@ class PDFSenderBot:
         self.message_handler = MessageHandler(self)
 
         # Create upload directory if it doesn't exist
-        os.makedirs(Config.UPLOAD_DIR, exist_ok=True)
+        os.makedirs(config.upload_dir, exist_ok=True)
 
         # Register handlers
         self._register_handlers()
@@ -72,6 +72,8 @@ class PDFSenderBot:
         self.dp.message.register(self.book_command, Command("book"))
         self.dp.message.register(self.upload_command, Command("upload"))
         self.dp.message.register(self.stats_command, Command("stats"))
+        self.dp.message.register(self.leaderboard_command, Command("leaderboard"))
+        self.dp.message.register(self.achievements_command, Command("achievements"))
         self.dp.message.register(self.admin_command, Command("admin"))
         self.dp.message.register(self.logs_command, Command("logs"))
         self.dp.message.register(self.users_command, Command("users"))
@@ -320,7 +322,7 @@ class PDFSenderBot:
                 f"📖 **Sent pages {current_page}-{end_page}**\n"
                 f"📍 Current page is now: {new_page}",
                 parse_mode="Markdown",
-                reply_markup=self.keyboards.page_navigation()
+                reply_markup=self.keyboards.reading_progress_menu(new_page, total_pages)
             )
 
         except Exception as e:
@@ -684,7 +686,7 @@ class PDFSenderBot:
             "📤 **Загрузка PDF книги**\n\n"
             "Отправьте мне PDF файл, который вы хотите читать.\n\n"
             "📋 **Требования:**\n"
-            f"• Максимальный размер: {Config.MAX_FILE_SIZE_MB}MB\n"
+            f"• Максимальный размер: {get_config().max_file_size // (1024 * 1024)}MB\n"
             "• Только PDF формат\n"
             "• Файл должен содержать текст или изображения",
             parse_mode="Markdown"
@@ -719,10 +721,10 @@ class PDFSenderBot:
 
             # Check file size before downloading
             file_size = message.document.file_size
-            if file_size and file_size > Config.MAX_FILE_SIZE_MB * 1024 * 1024:
+            if file_size and file_size > get_config().max_file_size:
                 await message.reply(
                     f"❌ **Файл слишком большой!**\n\n"
-                    f"Максимальный размер: {Config.MAX_FILE_SIZE_MB}MB\n"
+                    f"Максимальный размер: {get_config().max_file_size // (1024 * 1024)}MB\n"
                     f"Размер вашего файла: {file_size / 1024 / 1024:.1f}MB",
                     parse_mode="Markdown",
                     reply_markup=self.keyboards.main_menu()
@@ -741,7 +743,7 @@ class PDFSenderBot:
             file_path = file_info.file_path
 
             # Create user directory if it doesn't exist
-            user_upload_dir = os.path.join(Config.UPLOAD_DIR, str(user_id))
+            user_upload_dir = os.path.join(get_config().upload_dir, str(user_id))
             os.makedirs(user_upload_dir, exist_ok=True)
 
             # Generate local file path with timestamp to avoid conflicts
@@ -880,6 +882,81 @@ class PDFSenderBot:
             reply_markup=self.keyboards.book_management()
         )
 
+    async def leaderboard_command(self, message: types.Message):
+        """Handle /leaderboard command"""
+        if message.from_user is None:
+            return
+
+        user_id = message.from_user.id
+        username = message.from_user.username or "Unknown"
+
+        BotLogger.log_user_action(user_id, username, "leaderboard_command")
+
+        try:
+            leaderboard = self.db.get_leaderboard(limit=10)
+
+            if not leaderboard:
+                text = "📊 **Таблица лидеров**\n\n🤷‍♂️ Пока никто не читал страницы!"
+            else:
+                text = "📊 **Таблица лидеров**\n\n"
+                for i, user in enumerate(leaderboard, 1):
+                    medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+                    username = user.get('username', 'Неизвестный')
+                    points = user.get('total_points', 0)
+                    level = user.get('level', 1)
+                    text += f"{medal} **{username}** - {points} очков (Уровень {level})\n"
+
+            await message.reply(
+                text,
+                reply_markup=self.keyboards.leaderboard_menu(),
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            BotLogger.log_error(e, f"Error showing leaderboard: {e}")
+            await message.reply(
+                "❌ Ошибка при загрузке таблицы лидеров",
+                reply_markup=self.keyboards.main_menu()
+            )
+
+    async def achievements_command(self, message: types.Message):
+        """Handle /achievements command"""
+        if message.from_user is None:
+            return
+
+        user_id = message.from_user.id
+        username = message.from_user.username or "Unknown"
+
+        BotLogger.log_user_action(user_id, username, "achievements_command")
+
+        try:
+            user_stats = self.db.get_user_stats(user_id)
+            user_achievements = [ach['id'] for ach in user_stats['achievements']]
+            all_achievements = self.db.get_available_achievements()
+
+            text = "🏆 **Ваши достижения**\n\n"
+
+            unlocked_count = 0
+            for achievement in all_achievements:
+                if achievement['id'] in user_achievements:
+                    text += f"✅ {achievement['icon']} **{achievement['name']}** - {achievement['description']} (+{achievement['points']} очков)\n"
+                    unlocked_count += 1
+                else:
+                    text += f"🔒 {achievement['icon']} **{achievement['name']}** - {achievement['description']} (+{achievement['points']} очков)\n"
+
+            text += f"\n📈 **Прогресс:** {unlocked_count}/{len(all_achievements)} достижений разблокировано"
+
+            await message.reply(
+                text,
+                reply_markup=self.keyboards.achievements_menu(),
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            BotLogger.log_error(e, f"Error showing achievements: {e}")
+            await message.reply(
+                "❌ Ошибка при загрузке достижений",
+                reply_markup=self.keyboards.main_menu()
+            )
+
     async def stats_command(self, message: types.Message):
         """Handle /stats command to show enhanced reading statistics with gamification"""
         if message.from_user is None:
@@ -912,13 +989,21 @@ class PDFSenderBot:
 
             # Gamification stats
             stats_text += "🎮 **Игровая статистика:**\n"
-            stats_text += f"🎯 Очки: {user_stats['total_points']}\n"
-            stats_text += f"⭐ Уровень: {user_stats['level']} (Опыт: {user_stats['experience']}/100)\n"
-            stats_text += f"📚 Прочитано страниц: {user_stats['pages_read']}\n"
-            stats_text += f"📖 Завершено книг: {user_stats['books_completed']}\n"
-            stats_text += f"🔥 Текущая серия: {user_stats['current_streak']} дней\n"
-            stats_text += f"🏆 Лучшая серия: {user_stats['longest_streak']} дней\n"
-            stats_text += f"🏅 Достижений: {len(user_stats['achievements'])}\n\n"
+            stats_text += f"⭐ **Уровень:** {user_stats['level']}\n"
+
+            # Experience progress bar
+            exp = user_stats['experience']
+            next_level_exp = user_stats['level'] * 100
+            exp_percent = (exp % 100) / 100 * 100
+            exp_bar = "█" * int(exp_percent / 10) + "░" * (10 - int(exp_percent / 10))
+            stats_text += f" XP: {exp % 100}/{next_level_exp} [{exp_bar}]\n"
+
+            stats_text += f"🎯 **Очки:** {user_stats['total_points']}\n"
+            stats_text += f"📚 **Прочитано страниц:** {user_stats['pages_read']}\n"
+            stats_text += f"📖 **Завершено книг:** {user_stats['books_completed']}\n"
+            stats_text += f"🔥 **Текущая серия:** {user_stats['current_streak']} дней\n"
+            stats_text += f"🏆 **Лучшая серия:** {user_stats['longest_streak']} дней\n"
+            stats_text += f"🏅 **Достижений:** {len(user_stats['achievements'])}/{len(self.db.get_available_achievements())}\n\n"
 
             # Current book progress
             if pdf_path and os.path.exists(pdf_path):
@@ -927,14 +1012,14 @@ class PDFSenderBot:
                 progress = (current_page / total_pages) * 100 if total_pages > 0 else 0
 
                 stats_text += "📖 **Текущая книга:**\n"
-                stats_text += f"📚 Название: {os.path.basename(pdf_path)}\n"
-                stats_text += f"📄 Прогресс: {current_page}/{total_pages} страниц ({progress:.1f}%)\n"
+                stats_text += f"📚 {os.path.basename(pdf_path)}\n"
+                stats_text += f"📄 {current_page}/{total_pages} ({progress:.1f}%)\n"
 
                 # Progress bar
                 progress_bar_length = 10
                 filled_length = int(progress_bar_length * progress / 100)
                 progress_bar = "█" * filled_length + "░" * (progress_bar_length - filled_length)
-                stats_text += f"📊 [{progress_bar}] {progress:.1f}%\n\n"
+                stats_text += f"📊 [{progress_bar}]\n\n"
             else:
                 stats_text += "📖 **Книга еще не загружена**\n\n"
 
@@ -951,15 +1036,14 @@ class PDFSenderBot:
                         pages_per_day = user_stats['pages_read'] / days_active if days_active > 0 else 0
                         
                         stats_text += "📈 **Аналитика чтения:**\n"
-                        stats_text += f"⚡ Темп чтения: {pages_per_day:.1f} стр/день\n"
-                        stats_text += f"📅 Дней активности: {days_active}\n"
+                        stats_text += f"⚡ **Темп:** {pages_per_day:.1f} стр/день\n"
                         
                         if pdf_path and os.path.exists(pdf_path):
                             current_page = self.db.get_current_page(user_id)
                             total_pages = self.db.get_total_pages(user_id)
                             if pages_per_day > 0 and total_pages > current_page:
                                 estimated_days_left = (total_pages - current_page) / pages_per_day
-                                stats_text += f"⏰ До завершения: {estimated_days_left:.0f} дней\n"
+                                stats_text += f"🏁 **До финиша:** ~{estimated_days_left:.0f} дней\n"
                         
                         stats_text += "\n"
                     except (ValueError, TypeError):
@@ -967,22 +1051,10 @@ class PDFSenderBot:
 
             # Recent achievements
             if user_stats['achievements']:
-                all_achievements = self.db.get_available_achievements()
-                recent_achievements = user_stats['achievements'][-3:]  # Last 3 achievements
-                
                 stats_text += "🏆 **Последние достижения:**\n"
-                for achievement_id in recent_achievements:
-                    if achievement_id in all_achievements:
-                        ach = all_achievements[achievement_id]
-                        stats_text += f"• {ach['icon']} {ach['name']}\n"
+                for achievement in user_stats['achievements'][-3:]:
+                    stats_text += f"• {achievement['icon']} **{achievement['name']}**: {achievement['description']} (+{achievement['points']} очков)\n"
                 stats_text += "\n"
-
-            # User settings info
-            stats_text += "⚙️ **Настройки:**\n"
-            stats_text += f"📄 Страниц за раз: {settings['pages_per_send']}\n"
-            stats_text += f"⏰ Интервал: {settings['interval_hours']} ч\n"
-            stats_text += f"🔄 Автоотправка: {'✅' if settings['auto_send_enabled'] else '❌'}\n"
-            stats_text += f"🔔 Уведомления: {'✅' if settings['notifications_enabled'] else '❌'}\n"
 
             await message.reply(
                 stats_text, 
@@ -1141,9 +1213,9 @@ class PDFSenderBot:
                 f"📚 PDF файлы: {CleanupManager.format_file_size(storage_stats['upload_dir_size'])} ({storage_stats['upload_dir_files']} файлов)\n"
                 f"💿 Общий размер: {CleanupManager.format_file_size(storage_stats['total_size'])}\n\n"
                 f"⚙️ **Конфигурация:**\n"
-                f"📄 Макс. размер файла: {Config.MAX_FILE_SIZE_MB}MB\n"
-                f"🗂️ Хранение изображений: {Config.IMAGE_RETENTION_DAYS} дней\n"
-                f"🖼️ Качество по умолчанию: {Config.IMAGE_QUALITY}%"
+                f"📄 Макс. размер файла: {get_config().max_file_size // (1024 * 1024)}MB\n"
+                f"🗂️ Хранение изображений: {get_config().cleanup_older_than_days} дней\n"
+                f"🖼️ Качество по умолчанию: {get_config().image_quality}%"
             )
 
             await message.answer(
@@ -1253,8 +1325,8 @@ class PDFSenderBot:
             # Create zip backup
             with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
                 # Backup database
-                if os.path.exists(Config.DATABASE_PATH):
-                    zipf.write(Config.DATABASE_PATH, "database.json")
+                if os.path.exists(get_config().database_path):
+                    zipf.write(get_config().database_path, "database.json")
                 
                 # Backup user settings
                 if os.path.exists("user_settings.json"):
@@ -1262,12 +1334,12 @@ class PDFSenderBot:
                 
                 # Backup config (without sensitive data)
                 zipf.writestr("config_backup.txt", 
-                    f"PAGES_PER_SEND={Config.PAGES_PER_SEND}\n"
-                    f"INTERVAL_HOURS={Config.INTERVAL_HOURS}\n"
-                    f"SCHEDULE_TIME={Config.SCHEDULE_TIME}\n"
-                    f"MAX_FILE_SIZE_MB={Config.MAX_FILE_SIZE_MB}\n"
-                    f"IMAGE_RETENTION_DAYS={Config.IMAGE_RETENTION_DAYS}\n"
-                    f"IMAGE_QUALITY={Config.IMAGE_QUALITY}\n"
+                    f"PAGES_PER_SEND={get_config().pages_per_send}\n"
+                    f"INTERVAL_HOURS={get_config().interval_hours}\n"
+                    f"SCHEDULE_TIME={get_config().schedule_time}\n"
+                    f"MAX_FILE_SIZE_MB={get_config().max_file_size // (1024 * 1024)}\n"
+                    f"IMAGE_RETENTION_DAYS={get_config().cleanup_older_than_days}\n"
+                    f"IMAGE_QUALITY={get_config().image_quality}\n"
                 )
             
             backup_size = os.path.getsize(backup_path) / 1024 / 1024  # MB

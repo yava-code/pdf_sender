@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import List, Optional
 from pydantic import Field, validator
 from pydantic_settings import BaseSettings
+from functools import lru_cache
 
 class Config(BaseSettings):
     """Application configuration using Pydantic settings."""
@@ -105,53 +106,7 @@ class Config(BaseSettings):
             'metrics_port': {'env': 'METRICS_PORT'},
         }
 
-# Global configuration instance
-config = Config()
-
-# Legacy compatibility - maintain old attribute names
-class LegacyConfig:
-    """Legacy configuration wrapper for backward compatibility."""
-    
-    @property
-    def BOT_TOKEN(self) -> str:
-        return config.bot_token
-    
-    @property
-    def DATABASE_PATH(self) -> str:
-        return config.database_path
-    
-    @property
-    def PDF_PATH(self) -> str:
-        return config.pdf_path
-    
-    @property
-    def INTERVAL_HOURS(self) -> int:
-        return config.interval_hours
-    
-    @property
-    def UPLOAD_DIR(self) -> Path:
-        return Path(config.upload_dir)
-    
-    @property
-    def MAX_FILE_SIZE(self) -> int:
-        return config.max_file_size
-    
-    @property
-    def ADMIN_IDS(self) -> List[int]:
-        return config.admin_ids
-    
-    @property
-    def LOG_LEVEL(self) -> str:
-        return config.log_level
-    
-    @property
-    def CLEANUP_INTERVAL_HOURS(self) -> int:
-        return config.cleanup_interval_hours
-    
-    @property
-    def CLEANUP_OLDER_THAN_DAYS(self) -> int:
-        return config.cleanup_older_than_days
-
-# Create legacy instance for backward compatibility
-# Create legacy config instance for backward compatibility
-legacy_config = LegacyConfig()
+@lru_cache()
+def get_config() -> Config:
+    """Returns a cached instance of the Config class."""
+    return Config()
