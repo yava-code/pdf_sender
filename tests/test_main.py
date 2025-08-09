@@ -122,28 +122,26 @@ class TestPDFSenderBot:
     async def test_status_handler(self, pdf_bot, mock_message, mock_dependencies):
         """Test /status command handler"""
         # Setup mock returns
-        mock_dependencies["db"].get_user.return_value = {"id": 12345}
-        mock_dependencies["db"].get_pdf_path.return_value = "test.pdf"
+        mock_dependencies["db"].get_user.return_value = {"id": 12345, "current_book_id": 1}
+        mock_dependencies["db"].get_book.return_value = {"id": 1, "title": "Test Book", "total_pages": 100}
         mock_dependencies["db"].get_current_page.return_value = 10
-        mock_dependencies["db"].get_total_pages.return_value = 100
         mock_dependencies["db"].get_last_sent.return_value = None
 
-        # Mock os.path.exists to return True for the PDF path
-        with patch("main.os.path.exists", return_value=True):
-            await pdf_bot.status_handler(mock_message)
+        await pdf_bot.status_handler(mock_message)
 
         mock_message.answer.assert_called_once()
         call_args = mock_message.answer.call_args[0][0]
         assert "Reading Progress" in call_args
         assert "Current page:** 10" in call_args
         assert "Progress:** 10.0%" in call_args
+        assert "Book:** Test Book" in call_args
 
     @pytest.mark.asyncio
     async def test_next_pages_handler(self, pdf_bot, mock_message, mock_dependencies):
         """Test /next command handler"""
         # Setup mock returns
-        mock_dependencies["db"].get_user.return_value = {"id": 12345}
-        mock_dependencies["db"].get_pdf_path.return_value = "test.pdf"
+        mock_dependencies["db"].get_user.return_value = {"id": 12345, "current_book_id": 1}
+        mock_dependencies["db"].get_book.return_value = {"id": 1, "title": "Test Book", "total_pages": 100}
         mock_dependencies["db"].get_current_page.return_value = 5
         mock_dependencies["db"].get_total_pages.return_value = 100
         mock_dependencies["db"].increment_page.return_value = 8
@@ -156,9 +154,7 @@ class TestPDFSenderBot:
             "pages_per_send": 3
         }
 
-        # Mock os.path.exists to return True for the PDF path
-        with patch("main.os.path.exists", return_value=True):
-            await pdf_bot.next_pages_handler(mock_message)
+        await pdf_bot.next_pages_handler(mock_message)
 
         # Check that pages were sent
         pdf_bot.send_pages_to_user.assert_called_once_with(12345, 5)
@@ -176,8 +172,8 @@ class TestPDFSenderBot:
     async def test_next_pages_handler_with_reading_progress_menu(self, pdf_bot, mock_message, mock_dependencies):
         """Test /next command handler replies with reading_progress_menu"""
         # Setup mock returns
-        mock_dependencies["db"].get_user.return_value = {"id": 12345}
-        mock_dependencies["db"].get_pdf_path.return_value = "test.pdf"
+        mock_dependencies["db"].get_user.return_value = {"id": 12345, "current_book_id": 1}
+        mock_dependencies["db"].get_book.return_value = {"id": 1, "title": "Test Book", "total_pages": 100}
         mock_dependencies["db"].get_current_page.return_value = 5
         mock_dependencies["db"].get_total_pages.return_value = 100
         mock_dependencies["db"].increment_page.return_value = 8
@@ -190,9 +186,7 @@ class TestPDFSenderBot:
             "pages_per_send": 3
         }
 
-        # Mock os.path.exists to return True for the PDF path
-        with patch("main.os.path.exists", return_value=True):
-            await pdf_bot.next_pages_handler(mock_message)
+        await pdf_bot.next_pages_handler(mock_message)
 
         # Check that pages were sent
         pdf_bot.send_pages_to_user.assert_called_once_with(12345, 5)
@@ -207,8 +201,8 @@ class TestPDFSenderBot:
     async def test_current_page_handler(self, pdf_bot, mock_message, mock_dependencies):
         """Test /current command handler"""
         # Setup mock returns
-        mock_dependencies["db"].get_user.return_value = {"id": 12345}
-        mock_dependencies["db"].get_pdf_path.return_value = "test.pdf"
+        mock_dependencies["db"].get_user.return_value = {"id": 12345, "current_book_id": 1}
+        mock_dependencies["db"].get_book.return_value = {"id": 1, "title": "Test Book", "total_pages": 100}
         mock_dependencies["db"].get_current_page.return_value = 15
         mock_dependencies["db"].get_total_pages.return_value = 100
 
@@ -219,9 +213,7 @@ class TestPDFSenderBot:
         # Mock bot send_photo method
         mock_dependencies["bot"].send_photo = AsyncMock()
 
-        # Mock os.path.exists to return True for the PDF path
-        with patch("main.os.path.exists", return_value=True):
-            await pdf_bot.current_page_handler(mock_message)
+        await pdf_bot.current_page_handler(mock_message)
 
         # Check that send_photo was called
         mock_dependencies["bot"].send_photo.assert_called_once()
@@ -239,16 +231,14 @@ class TestPDFSenderBot:
         mock_message.text = "/goto 25"
 
         # Setup mock returns
-        mock_dependencies["db"].get_user.return_value = {"id": 12345}
-        mock_dependencies["db"].get_pdf_path.return_value = "test.pdf"
+        mock_dependencies["db"].get_user.return_value = {"id": 12345, "current_book_id": 1}
+        mock_dependencies["db"].get_book.return_value = {"id": 1, "title": "Test Book", "total_pages": 100}
         mock_dependencies["db"].get_total_pages.return_value = 100
 
         # Mock _send_single_page method
         pdf_bot._send_single_page = AsyncMock()
 
-        # Mock os.path.exists to return True for the PDF path
-        with patch("main.os.path.exists", return_value=True):
-            await pdf_bot.goto_page_handler(mock_message)
+        await pdf_bot.goto_page_handler(mock_message)
 
         # Check that page was set
         mock_dependencies["db"].set_current_page.assert_called_once_with(12345, 25)
@@ -366,14 +356,19 @@ class TestPDFSenderBot:
         """Test checking and sending pages to all users"""
         # Setup mock returns
         mock_dependencies["db"].get_users.return_value = [
-            {"id": 123, "username": "user1"},
-            {"id": 456, "username": "user2"},
+            {"id": 123, "username": "user1", "current_book_id": 1},
+            {"id": 456, "username": "user2", "current_book_id": 2},
         ]
 
-        # Mock per-user database calls
-        def mock_get_pdf_path(user_id):
-            return "test.pdf"
+        def get_book_side_effect(book_id):
+            if book_id == 1:
+                return {"id": 1, "title": "Book 1", "total_pages": 100}
+            elif book_id == 2:
+                return {"id": 2, "title": "Book 2", "total_pages": 200}
+            return None
+        mock_dependencies["db"].get_book.side_effect = get_book_side_effect
 
+        # Mock per-user database calls
         def mock_get_last_sent(user_id):
             return None  # Never sent before
 
@@ -384,13 +379,8 @@ class TestPDFSenderBot:
             assert increment == 3
             return 13
 
-        def mock_get_total_pages(user_id):
-            return 100
-
-        mock_dependencies["db"].get_pdf_path.side_effect = mock_get_pdf_path
         mock_dependencies["db"].get_last_sent.side_effect = mock_get_last_sent
         mock_dependencies["db"].get_current_page.side_effect = mock_get_current_page
-        mock_dependencies["db"].get_total_pages.side_effect = mock_get_total_pages
         mock_dependencies["db"].increment_page.side_effect = mock_increment_page
 
         # Mock send_pages_to_user method
@@ -407,9 +397,7 @@ class TestPDFSenderBot:
         
         mock_dependencies["user_settings"].get_user_settings.side_effect = mock_get_user_settings
 
-        # Mock os.path.exists to return True for all PDF paths
-        with patch("main.os.path.exists", return_value=True):
-            await pdf_bot.check_and_send_pages()
+        await pdf_bot.check_and_send_pages()
 
         # Check that pages were sent to all users
         assert pdf_bot.send_pages_to_user.call_count == 2
@@ -468,3 +456,54 @@ class TestPDFSenderBot:
         assert "✅" in call_args
         assert "🔒" in call_args
         mock_dependencies["keyboards"].achievements_menu.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_mybooks_command(self, pdf_bot, mock_message, mock_dependencies):
+        """Test /mybooks command handler"""
+        # Setup mock returns
+        mock_dependencies["db"].get_user.return_value = {"id": 12345, "current_book_id": 1}
+        mock_dependencies["db"].get_user_books.return_value = [
+            {"id": 1, "title": "Book 1"},
+            {"id": 2, "title": "Book 2"},
+        ]
+
+        await pdf_bot.mybooks_command(mock_message)
+
+        mock_message.reply.assert_called_once()
+        call_args = mock_message.reply.call_args[0][0]
+        assert "Ваши книги" in call_args
+        assert "Book 1" in call_args
+        assert "Book 2" in call_args
+        assert "(текущая)" in call_args
+
+    @pytest.mark.asyncio
+    async def test_setbook_command(self, pdf_bot, mock_message, mock_dependencies):
+        """Test /setbook command handler"""
+        mock_message.text = "/setbook 2"
+
+        # Setup mock returns
+        mock_dependencies["db"].get_user_books.return_value = [
+            {"id": 1, "title": "Book 1"},
+            {"id": 2, "title": "Book 2"},
+        ]
+
+        await pdf_bot.setbook_command(mock_message)
+
+        mock_dependencies["db"].set_current_book.assert_called_once_with(12345, 2)
+        mock_message.reply.assert_called_once_with("Книга с ID `2` установлена как текущая.")
+
+    @pytest.mark.asyncio
+    async def test_delbook_command(self, pdf_bot, mock_message, mock_dependencies):
+        """Test /delbook command handler"""
+        mock_message.text = "/delbook 1"
+
+        # Setup mock returns
+        mock_dependencies["db"].get_user_books.return_value = [
+            {"id": 1, "title": "Book 1"},
+            {"id": 2, "title": "Book 2"},
+        ]
+
+        await pdf_bot.delbook_command(mock_message)
+
+        mock_dependencies["db"].delete_book_from_user.assert_called_once_with(12345, 1)
+        mock_message.reply.assert_called_once_with("Книга с ID `1` удалена из вашей библиотеки.")

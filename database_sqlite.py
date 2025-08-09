@@ -26,9 +26,7 @@ class DatabaseManagerSQLite:
                     id INTEGER PRIMARY KEY,
                     username TEXT,
                     joined_at TEXT,
-                    current_page INTEGER DEFAULT 1,
-                    total_pages INTEGER DEFAULT 0,
-                    pdf_path TEXT,
+                    current_book_id INTEGER,
                     last_sent TEXT,
                     total_points INTEGER DEFAULT 0,
                     pages_read INTEGER DEFAULT 0,
@@ -37,7 +35,32 @@ class DatabaseManagerSQLite:
                     longest_streak INTEGER DEFAULT 0,
                     last_read_date TEXT,
                     level INTEGER DEFAULT 1,
-                    experience INTEGER DEFAULT 0
+                    experience INTEGER DEFAULT 0,
+                    FOREIGN KEY (current_book_id) REFERENCES books(id)
+                )
+            """)
+
+            # Books table
+            self.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS books (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    pdf_path TEXT NOT NULL UNIQUE,
+                    total_pages INTEGER NOT NULL,
+                    added_at TEXT NOT NULL
+                )
+            """)
+
+            # User books table
+            self.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_books (
+                    user_id INTEGER,
+                    book_id INTEGER,
+                    current_page INTEGER DEFAULT 1,
+                    added_at TEXT NOT NULL,
+                    PRIMARY KEY (user_id, book_id),
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    FOREIGN KEY (book_id) REFERENCES books(id)
                 )
             """)
 
@@ -115,15 +138,8 @@ class DatabaseManagerSQLite:
         except sqlite3.Error as e:
             logger.error(f"Error populating achievements table: {e}")
 
-    def add_user(
-        self,
-        user_id: int,
-        username: Optional[str] = None,
-        pdf_path: Optional[str] = None,
-        current_page: int = 1,
-        total_pages: int = 0,
-    ):
-        """Add user to database or update existing user"""
+    def add_user(self, user_id: int, username: Optional[str] = None):
+        """Add a new user to the database"""
         try:
             from datetime import datetime
 
@@ -131,27 +147,64 @@ class DatabaseManagerSQLite:
             self.cursor.execute("SELECT id FROM users WHERE id = ?", (user_id,))
             user = self.cursor.fetchone()
 
-            if user:
-                # Update existing user
-                if username is not None:
-                    self.cursor.execute("UPDATE users SET username = ? WHERE id = ?", (username, user_id))
-                if pdf_path is not None:
-                    self.cursor.execute("UPDATE users SET pdf_path = ? WHERE id = ?", (pdf_path, user_id))
-                self.cursor.execute("UPDATE users SET current_page = ?, total_pages = ? WHERE id = ?", (current_page, total_pages, user_id))
-                logger.info(f"User {user_id} (@{username}) updated in the database.")
-            else:
+            if not user:
                 # Insert new user
-                config = get_config()
-                pdf_path = pdf_path or config.pdf_path
                 self.cursor.execute("""
-                    INSERT INTO users (id, username, joined_at, current_page, total_pages, pdf_path)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (user_id, username, datetime.now().isoformat(), current_page, total_pages, pdf_path))
+                    INSERT INTO users (id, username, joined_at)
+                    VALUES (?, ?, ?)
+                """, (user_id, username, datetime.now().isoformat()))
                 logger.info(f"User {user_id} (@{username}) added to the database.")
 
             self.conn.commit()
         except sqlite3.Error as e:
-            logger.error(f"Error adding or updating user {user_id}: {e}")
+            logger.error(f"Error adding user {user_id}: {e}")
+
+    def add_book(self, title: str, pdf_path: str, total_pages: int) -> Optional[int]:
+        """Add a new book to the database"""
+        try:
+            from datetime import datetime
+
+            self.cursor.execute("""
+                INSERT OR IGNORE INTO books (title, pdf_path, total_pages, added_at)
+                VALUES (?, ?, ?, ?)
+            """, (title, pdf_path, total_pages, datetime.now().isoformat()))
+            self.conn.commit()
+
+            self.cursor.execute("SELECT id FROM books WHERE pdf_path = ?", (pdf_path,))
+            book = self.cursor.fetchone()
+            return book["id"] if book else None
+        except sqlite3.Error as e:
+            logger.error(f"Error adding book: {e}")
+            return None
+
+    def add_book_to_user(self, user_id: int, book_id: int):
+        """Add a book to a user's library"""
+        try:
+            from datetime import datetime
+
+            self.cursor.execute("""
+                INSERT OR IGNORE INTO user_books (user_id, book_id, added_at)
+                VALUES (?, ?, ?)
+            """, (user_id, book_id, datetime.now().isoformat()))
+            self.conn.commit()
+        except sqlite3.Error as e:
+            logger.error(f"Error adding book to user {user_id}: {e}")
+
+    def set_current_book(self, user_id: int, book_id: int):
+        """Set the user's current book"""
+        try:
+            self.cursor.execute("UPDATE users SET current_book_id = ? WHERE id = ?", (book_id, user_id))
+            self.conn.commit()
+        except sqlite3.Error as e:
+            logger.error(f"Error setting current book for user {user_id}: {e}")
+
+    def delete_book_from_user(self, user_id: int, book_id: int):
+        """Delete a book from a user's library"""
+        try:
+            self.cursor.execute("DELETE FROM user_books WHERE user_id = ? AND book_id = ?", (user_id, book_id))
+            self.conn.commit()
+        except sqlite3.Error as e:
+            logger.error(f"Error deleting book {book_id} from user {user_id}: {e}")
 
     def get_user(self, user_id: int) -> Optional[Dict[str, Any]]:
         """Get a specific user by ID, returns None if not found"""
@@ -173,15 +226,52 @@ class DatabaseManagerSQLite:
             logger.error(f"Error getting all users: {e}")
             return []
 
+    def get_book(self, book_id: int) -> Optional[Dict[str, Any]]:
+        """Get a specific book by ID, returns None if not found"""
+        try:
+            self.cursor.execute("SELECT * FROM books WHERE id = ?", (book_id,))
+            book = self.cursor.fetchone()
+            return dict(book) if book else None
+        except sqlite3.Error as e:
+            logger.error(f"Error getting book {book_id}: {e}")
+            return None
+
+    def get_user_books(self, user_id: int) -> List[Dict[str, Any]]:
+        """Get all books for a user"""
+        try:
+            self.cursor.execute("""
+                SELECT b.* FROM books b
+                JOIN user_books ub ON b.id = ub.book_id
+                WHERE ub.user_id = ?
+            """, (user_id,))
+            books = self.cursor.fetchall()
+            return [dict(book) for book in books]
+        except sqlite3.Error as e:
+            logger.error(f"Error getting books for user {user_id}: {e}")
+            return []
+
     def get_current_page(self, user_id: int) -> int:
-        """Get current page number for a user"""
+        """Get current page number for the user's current book"""
         user = self.get_user(user_id)
-        return user.get("current_page", 1) if user else 1
+        if not user or not user.get("current_book_id"):
+            return 1
+
+        try:
+            self.cursor.execute("SELECT current_page FROM user_books WHERE user_id = ? AND book_id = ?", (user_id, user["current_book_id"]))
+            page = self.cursor.fetchone()
+            return page["current_page"] if page else 1
+        except sqlite3.Error as e:
+            logger.error(f"Error getting current page for user {user_id}: {e}")
+            return 1
 
     def set_current_page(self, user_id: int, page: int):
-        """Set current page number for a user"""
+        """Set current page number for the user's current book"""
+        user = self.get_user(user_id)
+        if not user or not user.get("current_book_id"):
+            return
+
         try:
-            self.cursor.execute("UPDATE users SET current_page = ? WHERE id = ?", (page, user_id))
+            self.cursor.execute("UPDATE user_books SET current_page = ? WHERE user_id = ? AND book_id = ?", (page, user_id, user["current_book_id"]))
             self.conn.commit()
         except sqlite3.Error as e:
             logger.error(f"Error setting current page for user {user_id}: {e}")
@@ -194,30 +284,20 @@ class DatabaseManagerSQLite:
         return new_page
 
     def get_total_pages(self, user_id: int) -> int:
-        """Get total pages count for a user's PDF"""
+        """Get total pages count for the user's current book"""
         user = self.get_user(user_id)
-        return user.get("total_pages", 0) if user else 0
+        if not user or not user.get("current_book_id"):
+            return 0
 
-    def set_total_pages(self, user_id: int, total: int):
-        """Set total pages count for a user's PDF"""
         try:
-            self.cursor.execute("UPDATE users SET total_pages = ? WHERE id = ?", (total, user_id))
-            self.conn.commit()
+            self.cursor.execute("SELECT total_pages FROM books WHERE id = ?", (user["current_book_id"],))
+            book = self.cursor.fetchone()
+            return book["total_pages"] if book else 0
         except sqlite3.Error as e:
-            logger.error(f"Error setting total pages for user {user_id}: {e}")
+            logger.error(f"Error getting total pages for user {user_id}: {e}")
+            return 0
 
-    def set_pdf_path(self, user_id: int, pdf_path: str):
-        """Set PDF path for a user"""
-        try:
-            self.cursor.execute("UPDATE users SET pdf_path = ? WHERE id = ?", (pdf_path, user_id))
-            self.conn.commit()
-        except sqlite3.Error as e:
-            logger.error(f"Error setting PDF path for user {user_id}: {e}")
 
-    def get_pdf_path(self, user_id: int) -> str:
-        """Get PDF path for a user"""
-        user = self.get_user(user_id)
-        return user.get("pdf_path", get_config().pdf_path) if user else get_config().pdf_path
 
     def update_last_sent(self, user_id: int):
         """Update last sent timestamp for a user"""

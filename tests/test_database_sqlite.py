@@ -103,3 +103,55 @@ class TestDatabaseManagerSQLite:
             # Should have tables
             db_manager.cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
             assert db_manager.cursor.fetchone() is not None
+
+    def test_add_book(self, db_manager):
+        """Test adding a book"""
+        book_id = db_manager.add_book("Test Book", "test.pdf", 100)
+        assert isinstance(book_id, int)
+
+    def test_add_book_to_user(self, db_manager):
+        """Test adding a book to a user's library"""
+        user_id = 123
+        db_manager.add_user(user_id, "test_user")
+        book_id = db_manager.add_book("Test Book", "test.pdf", 100)
+        db_manager.add_book_to_user(user_id, book_id)
+
+        user_books = db_manager.get_user_books(user_id)
+        assert len(user_books) == 1
+        assert user_books[0]["id"] == book_id
+
+    def test_get_user_books(self, db_manager):
+        """Test getting user's books"""
+        user_id = 123
+        db_manager.add_user(user_id, "test_user")
+        book_id1 = db_manager.add_book("Book 1", "book1.pdf", 100)
+        book_id2 = db_manager.add_book("Book 2", "book2.pdf", 200)
+        db_manager.add_book_to_user(user_id, book_id1)
+        db_manager.add_book_to_user(user_id, book_id2)
+
+        user_books = db_manager.get_user_books(user_id)
+        assert len(user_books) == 2
+        assert user_books[0]["title"] == "Book 1"
+        assert user_books[1]["title"] == "Book 2"
+
+    def test_set_current_book(self, db_manager):
+        """Test setting the current book for a user"""
+        user_id = 123
+        db_manager.add_user(user_id, "test_user")
+        book_id = db_manager.add_book("Test Book", "test.pdf", 100)
+        db_manager.add_book_to_user(user_id, book_id)
+        db_manager.set_current_book(user_id, book_id)
+
+        user = db_manager.get_user(user_id)
+        assert user["current_book_id"] == book_id
+
+    def test_delete_book_from_user(self, db_manager):
+        """Test deleting a book from a user's library"""
+        user_id = 123
+        db_manager.add_user(user_id, "test_user")
+        book_id = db_manager.add_book("Test Book", "test.pdf", 100)
+        db_manager.add_book_to_user(user_id, book_id)
+
+        db_manager.delete_book_from_user(user_id, book_id)
+        user_books = db_manager.get_user_books(user_id)
+        assert len(user_books) == 0

@@ -80,6 +80,9 @@ class PDFSenderBot:
         self.dp.message.register(self.system_command, Command("system"))
         self.dp.message.register(self.backup_command, Command("backup"))
         self.dp.message.register(self.cleanup_command, Command("cleanup"))
+        self.dp.message.register(self.mybooks_command, Command("mybooks"))
+        self.dp.message.register(self.setbook_command, Command("setbook"))
+        self.dp.message.register(self.delbook_command, Command("delbook"))
 
         # Callback query handlers
         self.dp.callback_query.register(self.callback_handler.handle_callback)
@@ -203,7 +206,8 @@ class PDFSenderBot:
         BotLogger.log_user_action(user_id, username, "status_command")
 
         # Check if user exists
-        if not self.db.get_user(user_id):
+        user = self.db.get_user(user_id)
+        if not user:
             await message.answer(
                 "❌ **Need to start bot**\n\n"
                 "Use /start command",
@@ -212,12 +216,23 @@ class PDFSenderBot:
             )
             return
 
-        # Check if user has a PDF
-        pdf_path = self.db.get_pdf_path(user_id)
-        if not pdf_path or not os.path.exists(pdf_path):
+        # Check if user has a current book
+        book_id = user.get("current_book_id")
+        if not book_id:
             await message.answer(
-                "❌ **Book not uploaded**\n\n"
-                "First upload a PDF book using /upload command",
+                "❌ **No book selected**\n\n"
+                "First upload a PDF book using /upload command and set it as current.",
+                parse_mode="Markdown",
+                reply_markup=self.keyboards.main_menu()
+            )
+            return
+
+        book = self.db.get_book(book_id)
+        if not book:
+            # This should not happen if the database is consistent
+            await message.answer(
+                "❌ **Error getting book information**\n\n"
+                "Could not find the current book in the database.",
                 parse_mode="Markdown",
                 reply_markup=self.keyboards.main_menu()
             )
@@ -227,9 +242,9 @@ class PDFSenderBot:
         settings = self.user_settings.get_user_settings(user_id)
         
         current_page = self.db.get_current_page(user_id)
-        total_pages = self.db.get_total_pages(user_id)
+        total_pages = book["total_pages"]
         progress = (current_page / total_pages) * 100 if total_pages > 0 else 0
-        filename = os.path.basename(pdf_path)
+        filename = book["title"]
 
         # Get last sent time
         last_sent = self.db.get_last_sent(user_id)
@@ -278,18 +293,18 @@ class PDFSenderBot:
         user_id = message.from_user.id
         username = message.from_user.username or "unknown"
         
-        # Log user action
         BotLogger.log_user_action(user_id, username, "next_pages")
 
         # Check if user exists
-        if not self.db.get_user(user_id):
+        user = self.db.get_user(user_id)
+        if not user:
             await message.answer("You need to start the bot first with /start!", 
                                reply_markup=self.keyboards.main_menu())
             return
 
-        # Check if user has a PDF
-        pdf_path = self.db.get_pdf_path(user_id)
-        if not pdf_path or not os.path.exists(pdf_path):
+        # Check if user has a current book
+        book_id = user.get("current_book_id")
+        if not book_id:
             await message.answer(
                 "You need to upload a PDF book first! Use /upload.",
                 reply_markup=self.keyboards.main_menu()
@@ -338,18 +353,18 @@ class PDFSenderBot:
         user_id = message.from_user.id
         username = message.from_user.username or "unknown"
         
-        # Log user action
         BotLogger.log_user_action(user_id, username, "current_page")
 
         # Check if user exists
-        if not self.db.get_user(user_id):
+        user = self.db.get_user(user_id)
+        if not user:
             await message.answer("Вам нужно сначала запустить бота командой /start!",
                                reply_markup=self.keyboards.main_menu())
             return
 
-        # Check if user has a PDF
-        pdf_path = self.db.get_pdf_path(user_id)
-        if not pdf_path or not os.path.exists(pdf_path):
+        # Check if user has a current book
+        book_id = user.get("current_book_id")
+        if not book_id:
             await message.answer(
                 "Вам нужно сначала загрузить PDF книгу! Используйте команду /upload.",
                 reply_markup=self.keyboards.main_menu()
@@ -448,7 +463,8 @@ class PDFSenderBot:
         BotLogger.log_user_action(user_id, username, "goto_page_command")
 
         # Check if user exists
-        if not self.db.get_user(user_id):
+        user = self.db.get_user(user_id)
+        if not user:
             await message.answer(
                 "❌ **Need to start bot**\n\n"
                 "Use /start command",
@@ -457,9 +473,9 @@ class PDFSenderBot:
             )
             return
 
-        # Check if user has a PDF
-        pdf_path = self.db.get_pdf_path(user_id)
-        if not pdf_path or not os.path.exists(pdf_path):
+        # Check if user has a current book
+        book_id = user.get("current_book_id")
+        if not book_id:
             await message.answer(
                 "❌ **Book not uploaded**\n\n"
                 "First upload a PDF book using /upload command",
@@ -596,10 +612,15 @@ class PDFSenderBot:
                     if not user_settings["auto_send_enabled"]:
                         continue
 
-                    # Check if user has a PDF
-                    pdf_path = self.db.get_pdf_path(user_id)
-                    if not pdf_path or not os.path.exists(pdf_path):
-                        logger.info(f"User {user_id} has no PDF, skipping")
+                    # Check if user has a current book
+                    book_id = user.get("current_book_id")
+                    if not book_id:
+                        logger.info(f"User {user_id} has no current book, skipping")
+                        continue
+
+                    book = self.db.get_book(book_id)
+                    if not book:
+                        logger.warning(f"Could not find book with id {book_id} for user {user_id}")
                         continue
 
                     # Get user's schedule settings
@@ -643,7 +664,7 @@ class PDFSenderBot:
                         current_page = self.db.get_current_page(user_id)
                         
                         # Check if we've reached the end of the book
-                        total_pages = self.db.get_total_pages(user_id)
+                        total_pages = book["total_pages"]
                         if current_page >= total_pages:
                             logger.info(f"User {user_id} has finished their book")
                             continue
@@ -703,7 +724,6 @@ class PDFSenderBot:
         user_id = message.from_user.id
         username = message.from_user.username or "unknown"
         
-        # Log user action
         BotLogger.log_user_action(user_id, username, "pdf_upload_attempt")
 
         try:
@@ -778,43 +798,64 @@ class PDFSenderBot:
                 BotLogger.log_error(Exception(validation_message), f"PDF validation failed for user {user_id}")
                 return
 
-            # Create a PDFReader instance to validate and set the PDF
-            pdf_reader = PDFReader(
-                user_id=user_id, output_dir=get_config().output_dir, db=self.db
-            )
-            success = pdf_reader.set_pdf_for_user(user_id, local_file_path)
+            # Create a PDFReader instance to validate the PDF
+            pdf_reader = PDFReader(pdf_path=local_file_path)
+            total_pages = pdf_reader.get_total_pages()
 
-            if success:
-                total_pages = self.db.get_total_pages(user_id)
-                file_size_mb = (
-                    f"{file_size / 1024 / 1024:.1f}MB" if file_size else "Unknown"
-                )
-                await message.reply(
-                    f"✅ **PDF успешно загружен!**\n\n"
-                    f"📚 **Книга:** {sanitized_filename}\n"
-                    f"📄 **Всего страниц:** {total_pages}\n"
-                    f"💾 **Размер файла:** {file_size_mb}\n\n"
-                    f"📖 Чтение начинается с первой страницы.\n"
-                    f"Используйте кнопки ниже для навигации.",
-                    parse_mode="Markdown",
-                    reply_markup=self.keyboards.main_menu()
-                )
-                BotLogger.log_user_action(
-                    user_id, username, 
-                    f"pdf_uploaded: {sanitized_filename} ({total_pages} pages)"
-                )
-            else:
+            if total_pages == 0:
                 await message.reply(
                     "❌ **Ошибка обработки PDF**\n\n"
-                    "Возникла проблема при обработке вашего файла. "
+                    "Не удалось определить количество страниц в файле. "
                     "Попробуйте другой PDF файл.",
                     parse_mode="Markdown",
                     reply_markup=self.keyboards.main_menu()
                 )
-                # Clean up the file if there was an error
                 if os.path.exists(local_file_path):
                     os.remove(local_file_path)
-                BotLogger.log_error(Exception("set_pdf_for_user returned False"), f"PDF processing failed for user {user_id}")
+                return
+
+            # Add book to the database
+            book_id = self.db.add_book(
+                title=sanitized_filename,
+                pdf_path=local_file_path,
+                total_pages=total_pages
+            )
+
+            if book_id is None:
+                await message.reply(
+                    "❌ **Ошибка базы данных**\n\n"
+                    "Не удалось добавить книгу в базу данных. "
+                    "Попробуйте еще раз.",
+                    parse_mode="Markdown",
+                    reply_markup=self.keyboards.main_menu()
+                )
+                if os.path.exists(local_file_path):
+                    os.remove(local_file_path)
+                return
+
+            # Add book to user's library
+            self.db.add_book_to_user(user_id, book_id)
+
+            # Set as current book
+            self.db.set_current_book(user_id, book_id)
+
+            file_size_mb = (
+                f"{file_size / 1024 / 1024:.1f}MB" if file_size else "Unknown"
+            )
+            await message.reply(
+                f"✅ **PDF успешно загружен!**\n\n"
+                f"📚 **Книга:** {sanitized_filename}\n"
+                f"📄 **Всего страниц:** {total_pages}\n"
+                f"💾 **Размер файла:** {file_size_mb}\n\n"
+                f"📖 Эта книга установлена как текущая.\n"
+                f"Используйте кнопки ниже для навигации.",
+                parse_mode="Markdown",
+                reply_markup=self.keyboards.main_menu()
+            )
+            BotLogger.log_user_action(
+                user_id, username,
+                f"pdf_uploaded: {sanitized_filename} ({total_pages} pages)"
+            )
 
         except Exception as e:
             BotLogger.log_error(e, f"processing PDF upload for user {user_id}")
@@ -829,8 +870,102 @@ class PDFSenderBot:
             # Reset the state
             await state.clear()
 
+    async def delbook_command(self, message: types.Message):
+        """Handle /delbook command to delete a book from user's library"""
+        if message.from_user is None or message.text is None:
+            return
+
+        user_id = message.from_user.id
+        username = message.from_user.username or "Unknown"
+
+        BotLogger.log_user_action(user_id, username, "delbook_command")
+
+        try:
+            book_id = int(message.text.split()[1])
+        except (IndexError, ValueError):
+            await message.reply("Пожалуйста, укажите ID книги. Например: `/delbook 123`")
+            return
+
+        user_books = self.db.get_user_books(user_id)
+        book_ids = [book["id"] for book in user_books]
+
+        if book_id not in book_ids:
+            await message.reply("У вас нет книги с таким ID.")
+            return
+
+        self.db.delete_book_from_user(user_id, book_id)
+        await message.reply(f"Книга с ID `{book_id}` удалена из вашей библиотеки.")
+
+    async def setbook_command(self, message: types.Message):
+        """Handle /setbook command to set the current book"""
+        if message.from_user is None or message.text is None:
+            return
+
+        user_id = message.from_user.id
+        username = message.from_user.username or "Unknown"
+
+        BotLogger.log_user_action(user_id, username, "setbook_command")
+
+        try:
+            book_id = int(message.text.split()[1])
+        except (IndexError, ValueError):
+            await message.reply("Пожалуйста, укажите ID книги. Например: `/setbook 123`")
+            return
+
+        user_books = self.db.get_user_books(user_id)
+        book_ids = [book["id"] for book in user_books]
+
+        if book_id not in book_ids:
+            await message.reply("У вас нет книги с таким ID.")
+            return
+
+        self.db.set_current_book(user_id, book_id)
+        await message.reply(f"Книга с ID `{book_id}` установлена как текущая.")
+
+    async def mybooks_command(self, message: types.Message):
+        """Handle /mybooks command to list user's books"""
+        if message.from_user is None:
+            return
+
+        user_id = message.from_user.id
+        username = message.from_user.username or "Unknown"
+
+        BotLogger.log_user_action(user_id, username, "mybooks_command")
+
+        user = self.db.get_user(user_id)
+        if not user:
+            await message.reply(
+                "❌ **Необходимо запустить бота**\n\n"
+                "Используйте команду /start",
+                parse_mode="Markdown",
+                reply_markup=self.keyboards.main_menu()
+            )
+            return
+
+        user_books = self.db.get_user_books(user_id)
+        current_book_id = user.get("current_book_id")
+
+        if not user_books:
+            await message.reply(
+                "❌ **Книги не загружены**\n\n"
+                "Вы еще не загрузили ни одной книги! "
+                "Используйте команду /upload для добавления книги.",
+                parse_mode="Markdown",
+                reply_markup=self.keyboards.main_menu()
+            )
+            return
+
+        text = "📚 **Ваши книги:**\n\n"
+        for book in user_books:
+            is_current = " (текущая)" if book["id"] == current_book_id else ""
+            text += f"📖 `{book['id']}`: **{book['title']}**{is_current}\n"
+
+        text += "\nИспользуйте `/setbook <ID>` чтобы выбрать книгу и `/delbook <ID>` чтобы удалить."
+
+        await message.reply(text, parse_mode="Markdown")
+
     async def book_command(self, message: types.Message):
-        """Handle /book command to show current book info"""
+        """Handle /book command to show current book info and manage books"""
         if message.from_user is None:
             return
 
@@ -840,7 +975,8 @@ class PDFSenderBot:
         BotLogger.log_user_action(user_id, username, "book_info_command")
 
         # Check if user exists
-        if not self.db.get_user(user_id):
+        user = self.db.get_user(user_id)
+        if not user:
             await message.reply(
                 "❌ **Необходимо запустить бота**\n\n"
                 "Используйте команду /start",
@@ -849,32 +985,28 @@ class PDFSenderBot:
             )
             return
 
-        # Check if user has a PDF
-        pdf_path = self.db.get_pdf_path(user_id)
-        if not pdf_path or not os.path.exists(pdf_path):
+        # Get user's books
+        user_books = self.db.get_user_books(user_id)
+        current_book_id = user.get("current_book_id")
+
+        if not user_books:
             await message.reply(
-                "❌ **Книга не загружена**\n\n"
-                "Вы еще не загрузили книгу! "
+                "❌ **Книги не загружены**\n\n"
+                "Вы еще не загрузили ни одной книги! "
                 "Используйте команду /upload для добавления книги.",
                 parse_mode="Markdown",
                 reply_markup=self.keyboards.main_menu()
             )
             return
 
-        # Get book info
-        filename = os.path.basename(pdf_path)
-        current_page = self.db.get_current_page(user_id)
-        total_pages = self.db.get_total_pages(user_id)
-        progress = (current_page / total_pages * 100) if total_pages > 0 else 0
-
         # Format book info
-        book_info = (
-            f"📚 **Ваша текущая книга** 📚\n\n"
-            f"📖 **Название:** {filename}\n"
-            f"📄 **Текущая страница:** {current_page} из {total_pages}\n"
-            f"📊 **Прогресс:** {progress:.1f}%\n\n"
-            f"💡 Используйте /upload для смены книги."
-        )
+        book_info = "📚 **Ваши книги** 📚\n\n"
+
+        for book in user_books:
+            is_current = " (текущая)" if book["id"] == current_book_id else ""
+            book_info += f"📖 **{book['title']}**{is_current}\n"
+
+        book_info += "\n💡 Используйте /mybooks для управления книгами."
 
         await message.reply(
             book_info,
@@ -968,7 +1100,8 @@ class PDFSenderBot:
         BotLogger.log_user_action(user_id, username, "stats_command")
 
         # Check if user exists
-        if not self.db.get_user(user_id):
+        user = self.db.get_user(user_id)
+        if not user:
             await message.reply(
                 "❌ **Необходимо запустить бота**\n\n"
                 "Используйте команду /start",
@@ -980,7 +1113,6 @@ class PDFSenderBot:
         try:
             # Get user stats with gamification
             user_stats = self.db.get_user_stats(user_id)
-            pdf_path = self.db.get_pdf_path(user_id)
             
             # Get user settings
             settings = self.user_settings.get_user_settings(user_id)
@@ -1006,26 +1138,29 @@ class PDFSenderBot:
             stats_text += f"🏅 **Достижений:** {len(user_stats['achievements'])}/{len(self.db.get_available_achievements())}\n\n"
 
             # Current book progress
-            if pdf_path and os.path.exists(pdf_path):
-                current_page = self.db.get_current_page(user_id)
-                total_pages = self.db.get_total_pages(user_id)
-                progress = (current_page / total_pages) * 100 if total_pages > 0 else 0
+            book_id = user.get("current_book_id")
+            if book_id:
+                book = self.db.get_book(book_id)
+                if book:
+                    current_page = self.db.get_current_page(user_id)
+                    total_pages = book["total_pages"]
+                    progress = (current_page / total_pages) * 100 if total_pages > 0 else 0
 
-                stats_text += "📖 **Текущая книга:**\n"
-                stats_text += f"📚 {os.path.basename(pdf_path)}\n"
-                stats_text += f"📄 {current_page}/{total_pages} ({progress:.1f}%)\n"
+                    stats_text += "📖 **Текущая книга:**\n"
+                    stats_text += f"📚 {book['title']}\n"
+                    stats_text += f"📄 {current_page}/{total_pages} ({progress:.1f}%)\n"
 
-                # Progress bar
-                progress_bar_length = 10
-                filled_length = int(progress_bar_length * progress / 100)
-                progress_bar = "█" * filled_length + "░" * (progress_bar_length - filled_length)
-                stats_text += f"📊 [{progress_bar}]\n\n"
+                    # Progress bar
+                    progress_bar_length = 10
+                    filled_length = int(progress_bar_length * progress / 100)
+                    progress_bar = "█" * filled_length + "░" * (progress_bar_length - filled_length)
+                    stats_text += f"📊 [{progress_bar}]\n\n"
             else:
                 stats_text += "📖 **Книга еще не загружена**\n\n"
 
             # Reading pace and predictions
             if user_stats['pages_read'] > 0:
-                user_data = self.db.get_user_data(user_id)
+                user_data = self.db.get_user(user_id)
                 join_date = user_data.get("joined_at")
                 if join_date:
                     try:
@@ -1038,12 +1173,14 @@ class PDFSenderBot:
                         stats_text += "📈 **Аналитика чтения:**\n"
                         stats_text += f"⚡ **Темп:** {pages_per_day:.1f} стр/день\n"
                         
-                        if pdf_path and os.path.exists(pdf_path):
-                            current_page = self.db.get_current_page(user_id)
-                            total_pages = self.db.get_total_pages(user_id)
-                            if pages_per_day > 0 and total_pages > current_page:
-                                estimated_days_left = (total_pages - current_page) / pages_per_day
-                                stats_text += f"🏁 **До финиша:** ~{estimated_days_left:.0f} дней\n"
+                        if book_id:
+                            book = self.db.get_book(book_id)
+                            if book and pages_per_day > 0:
+                                current_page = self.db.get_current_page(user_id)
+                                total_pages = book["total_pages"]
+                                if total_pages > current_page:
+                                    estimated_days_left = (total_pages - current_page) / pages_per_day
+                                    stats_text += f"🏁 **До финиша:** ~{estimated_days_left:.0f} дней\n"
                         
                         stats_text += "\n"
                     except (ValueError, TypeError):
