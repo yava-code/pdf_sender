@@ -25,8 +25,8 @@ class BotLogger:
 
         # Форматтер для логов
         formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
         )
 
         # Консольный обработчик
@@ -40,7 +40,7 @@ class BotLogger:
             filename=self.log_dir / "bot.log",
             maxBytes=10 * 1024 * 1024,  # 10 MB
             backupCount=5,
-            encoding="utf-8",
+            encoding='utf-8'
         )
         file_handler.setLevel(logging.INFO)
         file_handler.setFormatter(formatter)
@@ -51,19 +51,19 @@ class BotLogger:
             filename=self.log_dir / "errors.log",
             maxBytes=5 * 1024 * 1024,  # 5 MB
             backupCount=3,
-            encoding="utf-8",
+            encoding='utf-8'
         )
         error_handler.setLevel(logging.ERROR)
         error_handler.setFormatter(formatter)
         logger.addHandler(error_handler)
 
         # Логгер для пользовательских действий
-        user_logger = logging.getLogger("user_actions")
+        user_logger = logging.getLogger('user_actions')
         user_handler = logging.handlers.RotatingFileHandler(
             filename=self.log_dir / "user_actions.log",
             maxBytes=5 * 1024 * 1024,  # 5 MB
             backupCount=3,
-            encoding="utf-8",
+            encoding='utf-8'
         )
         user_handler.setFormatter(formatter)
         user_logger.addHandler(user_handler)
@@ -74,8 +74,10 @@ class BotLogger:
     @staticmethod
     def log_user_action(user_id: int, username: str, action: str, details: str = ""):
         """Логирование действий пользователей"""
-        user_logger = logging.getLogger("user_actions")
-        user_logger.info(f"User {user_id} (@{username}) - {action} - {details}")
+        user_logger = logging.getLogger('user_actions')
+        user_logger.info(
+            f"User {user_id} (@{username}) - {action} - {details}"
+        )
 
     @staticmethod
     def log_error(error: Exception, context: str = ""):
@@ -91,7 +93,7 @@ class BotLogger:
 
         try:
             if log_file.exists():
-                with open(log_file, "r", encoding="utf-8") as f:
+                with open(log_file, 'r', encoding='utf-8') as f:
                     lines = f.readlines()
 
                 # Берем последние строки
@@ -101,31 +103,27 @@ class BotLogger:
                     line = line.strip()
                     if line:
                         # Парсим строку лога
-                        parts = line.split(" - ", 3)
+                        parts = line.split(' - ', 3)
                         if len(parts) >= 4:
                             timestamp = parts[0]
                             name = parts[1]
                             level = parts[2]
                             message = parts[3]
 
-                            logs.append(
-                                {
-                                    "timestamp": timestamp,
-                                    "name": name,
-                                    "level": level,
-                                    "message": message,
-                                }
-                            )
+                            logs.append({
+                                'timestamp': timestamp,
+                                'name': name,
+                                'level': level,
+                                'message': message
+                            })
                         else:
                             # Если не удалось распарсить, добавляем как есть
-                            logs.append(
-                                {
-                                    "timestamp": "Unknown",
-                                    "name": "Unknown",
-                                    "level": "INFO",
-                                    "message": line,
-                                }
-                            )
+                            logs.append({
+                                'timestamp': 'Unknown',
+                                'name': 'Unknown',
+                                'level': 'INFO',
+                                'message': line
+                            })
         except Exception as e:
             logging.error(f"Error reading log file: {e}")
 
@@ -134,12 +132,8 @@ class BotLogger:
     @staticmethod
     def get_logs_by_level(level: str, count: int = 50):
         """Получить логи определенного уровня"""
-        all_logs = BotLogger.get_recent_logs(
-            count * 2
-        )  # Берем больше, чтобы отфильтровать
-        filtered_logs = [
-            log for log in all_logs if log.get("level", "").upper() == level.upper()
-        ]
+        all_logs = BotLogger.get_recent_logs(count * 2)  # Берем больше, чтобы отфильтровать
+        filtered_logs = [log for log in all_logs if log.get('level', '').upper() == level.upper()]
         return filtered_logs[-count:] if len(filtered_logs) > count else filtered_logs
 
     @staticmethod

@@ -11,17 +11,17 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import FSInputFile
 
-from callback_handlers import CallbackHandler
 from cleanup_manager import CleanupManager
 from config import Config
 from database_manager import DatabaseManager
 from file_validator import FileValidator
-from keyboards import BotKeyboards
-from logger_config import BotLogger, init_logging
-from message_handlers import MessageHandler
 from pdf_reader import PDFReader
 from scheduler import PDFScheduler
+from logger_config import BotLogger, init_logging
 from user_settings import UserSettings
+from keyboards import BotKeyboards
+from callback_handlers import CallbackHandler
+from message_handlers import MessageHandler
 
 # Configure logging using our custom logger
 init_logging()
@@ -73,6 +73,7 @@ class PDFSenderBot:
         self.dp.message.register(self.system_command, Command("system"))
         self.dp.message.register(self.backup_command, Command("backup"))
         self.dp.message.register(self.cleanup_command, Command("cleanup"))
+        self.dp.message.register(self.leaderboard_command, Command("leaderboard"))
 
         # Callback query handlers
         self.dp.callback_query.register(self.callback_handler.handle_callback)
@@ -110,7 +111,9 @@ class PDFSenderBot:
         )
 
         await message.answer(
-            welcome_text, reply_markup=self.keyboards.main_menu(), parse_mode="Markdown"
+            welcome_text,
+            reply_markup=self.keyboards.main_menu(),
+            parse_mode="Markdown"
         )
         logger.info(f"New user started: {user_id} (@{username})")
 
@@ -131,7 +134,7 @@ class PDFSenderBot:
         await message.answer(
             settings_text,
             reply_markup=self.keyboards.settings_menu(),
-            parse_mode="Markdown",
+            parse_mode="Markdown"
         )
 
     async def help_handler(self, message: types.Message):
@@ -178,7 +181,9 @@ class PDFSenderBot:
         )
 
         await message.answer(
-            help_text, reply_markup=self.keyboards.main_menu(), parse_mode="Markdown"
+            help_text,
+            reply_markup=self.keyboards.main_menu(),
+            parse_mode="Markdown"
         )
 
     async def status_handler(self, message: types.Message):
@@ -194,9 +199,10 @@ class PDFSenderBot:
         # Check if user exists
         if not self.db.get_user(user_id):
             await message.answer(
-                "❌ **Необходимо запустить бота**\n\n" "Используйте команду /start",
+                "❌ **Необходимо запустить бота**\n\n"
+                "Используйте команду /start",
                 parse_mode="Markdown",
-                reply_markup=self.keyboards.main_menu(),
+                reply_markup=self.keyboards.main_menu()
             )
             return
 
@@ -207,7 +213,7 @@ class PDFSenderBot:
                 "❌ **Книга не загружена**\n\n"
                 "Сначала загрузите PDF книгу с помощью команды /upload",
                 parse_mode="Markdown",
-                reply_markup=self.keyboards.main_menu(),
+                reply_markup=self.keyboards.main_menu()
             )
             return
 
@@ -224,20 +230,18 @@ class PDFSenderBot:
         if last_sent:
             last_sent_str = last_sent.strftime("%d.%m.%Y %H:%M")
             # Calculate next send time based on user's interval
-            next_send = last_sent + timedelta(hours=settings["interval_hours"])
+            next_send = last_sent + timedelta(hours=settings['interval_hours'])
             next_send_str = next_send.strftime("%d.%m.%Y %H:%M")
         else:
             last_sent_str = "Никогда"
-            next_send_str = "Скоро" if settings["auto_send_enabled"] else "Отключено"
+            next_send_str = "Скоро" if settings['auto_send_enabled'] else "Отключено"
 
         # Auto-send status
-        auto_send_status = (
-            "✅ Включена" if settings["auto_send_enabled"] else "❌ Отключена"
-        )
+        auto_send_status = "✅ Включена" if settings['auto_send_enabled'] else "❌ Отключена"
 
         # Schedule info
         schedule_info = ""
-        if settings["schedule_time"]:
+        if settings['schedule_time']:
             schedule_info = f"\n🕐 **Время отправки:** {settings['schedule_time']}"
 
         status_text = (
@@ -257,7 +261,7 @@ class PDFSenderBot:
         await message.answer(
             status_text,
             parse_mode="Markdown",
-            reply_markup=self.keyboards.page_navigation(),
+            reply_markup=self.keyboards.main_menu()
         )
 
     async def next_pages_handler(self, message: types.Message):
@@ -273,10 +277,8 @@ class PDFSenderBot:
 
         # Check if user exists
         if not self.db.get_user(user_id):
-            await message.answer(
-                "Вам нужно сначала запустить бота командой /start!",
-                reply_markup=self.keyboards.main_menu(),
-            )
+            await message.answer("Вам нужно сначала запустить бота командой /start!",
+                               reply_markup=self.keyboards.main_menu())
             return
 
         # Check if user has a PDF
@@ -284,7 +286,7 @@ class PDFSenderBot:
         if not pdf_path or not os.path.exists(pdf_path):
             await message.answer(
                 "Вам нужно сначала загрузить PDF книгу! Используйте команду /upload.",
-                reply_markup=self.keyboards.main_menu(),
+                reply_markup=self.keyboards.main_menu()
             )
             return
 
@@ -300,7 +302,7 @@ class PDFSenderBot:
             if current_page >= total_pages:
                 await message.answer(
                     "📖 Вы уже прочитали всю книгу! 🎉",
-                    reply_markup=self.keyboards.main_menu(),
+                    reply_markup=self.keyboards.main_menu()
                 )
                 return
 
@@ -314,15 +316,13 @@ class PDFSenderBot:
                 f"📖 **Отправлены страницы {current_page}-{end_page}**\n"
                 f"📍 Текущая страница: {new_page} из {total_pages}",
                 parse_mode="Markdown",
-                reply_markup=self.keyboards.page_navigation(),
+                reply_markup=self.keyboards.page_navigation()
             )
 
         except Exception as e:
             BotLogger.log_error(f"Error in next_pages_handler for user {user_id}", e)
-            await message.answer(
-                "❌ Ошибка отправки страниц. Попробуйте позже.",
-                reply_markup=self.keyboards.main_menu(),
-            )
+            await message.answer("❌ Ошибка отправки страниц. Попробуйте позже.",
+                               reply_markup=self.keyboards.main_menu())
 
     async def current_page_handler(self, message: types.Message):
         """Handle /current command - send current page"""
@@ -337,10 +337,8 @@ class PDFSenderBot:
 
         # Check if user exists
         if not self.db.get_user(user_id):
-            await message.answer(
-                "Вам нужно сначала запустить бота командой /start!",
-                reply_markup=self.keyboards.main_menu(),
-            )
+            await message.answer("Вам нужно сначала запустить бота командой /start!",
+                               reply_markup=self.keyboards.main_menu())
             return
 
         # Check if user has a PDF
@@ -348,13 +346,14 @@ class PDFSenderBot:
         if not pdf_path or not os.path.exists(pdf_path):
             await message.answer(
                 "Вам нужно сначала загрузить PDF книгу! Используйте команду /upload.",
-                reply_markup=self.keyboards.main_menu(),
+                reply_markup=self.keyboards.main_menu()
             )
             return
 
         try:
             # Get user settings
             user_settings = self.user_settings.get_user_settings(user_id)
+            image_quality = user_settings["image_quality"]
 
             current_page = self.db.get_current_page(user_id)
             total_pages = self.db.get_total_pages(user_id)
@@ -363,7 +362,9 @@ class PDFSenderBot:
             pdf_reader = PDFReader(
                 user_id=user_id, output_dir=Config.OUTPUT_DIR, db=self.db
             )
-            image_paths = pdf_reader.extract_pages_as_images(current_page, 1)
+            image_paths = pdf_reader.extract_pages_as_images(
+                current_page, 1
+            )
 
             if image_paths:
                 photo = FSInputFile(image_paths[0])
@@ -372,7 +373,7 @@ class PDFSenderBot:
                     photo=photo,
                     caption=f"📖 **Текущая страница: {current_page} из {total_pages}**",
                     parse_mode="Markdown",
-                    reply_markup=self.keyboards.page_navigation(),
+                    reply_markup=self.keyboards.page_navigation()
                 )
                 pdf_reader.cleanup_images()
             else:
@@ -380,7 +381,7 @@ class PDFSenderBot:
                     f"📖 **Текущая страница: {current_page} из {total_pages}**\n"
                     "(Не удалось отобразить изображение)",
                     parse_mode="Markdown",
-                    reply_markup=self.keyboards.page_navigation(),
+                    reply_markup=self.keyboards.page_navigation()
                 )
 
         except Exception as e:
@@ -433,9 +434,10 @@ class PDFSenderBot:
         # Check if user exists
         if not self.db.get_user(user_id):
             await message.answer(
-                "❌ **Необходимо запустить бота**\n\n" "Используйте команду /start",
+                "❌ **Необходимо запустить бота**\n\n"
+                "Используйте команду /start",
                 parse_mode="Markdown",
-                reply_markup=self.keyboards.main_menu(),
+                reply_markup=self.keyboards.main_menu()
             )
             return
 
@@ -446,7 +448,7 @@ class PDFSenderBot:
                 "❌ **Книга не загружена**\n\n"
                 "Сначала загрузите PDF книгу с помощью команды /upload",
                 parse_mode="Markdown",
-                reply_markup=self.keyboards.main_menu(),
+                reply_markup=self.keyboards.main_menu()
             )
             return
 
@@ -459,7 +461,7 @@ class PDFSenderBot:
                     "Используйте: `/goto номер_страницы`\n"
                     "Например: `/goto 15`",
                     parse_mode="Markdown",
-                    reply_markup=self.keyboards.page_navigation(),
+                    reply_markup=self.keyboards.page_navigation()
                 )
                 return
 
@@ -469,12 +471,15 @@ class PDFSenderBot:
                     f"❌ **Страница вне диапазона**\n\n"
                     f"Номер страницы должен быть от 1 до {total_pages}",
                     parse_mode="Markdown",
-                    reply_markup=self.keyboards.page_navigation(),
+                    reply_markup=self.keyboards.page_navigation()
                 )
                 return
 
             # Set new current page
             self.db.set_current_page(user_id, target_page)
+
+            # Get user settings for image quality
+            settings = self.user_settings.get_user_settings(user_id)
 
             # Send the target page
             await self._send_single_page(user_id, target_page)
@@ -488,7 +493,7 @@ class PDFSenderBot:
                 "Произошла ошибка при переходе к странице. "
                 "Попробуйте еще раз.",
                 parse_mode="Markdown",
-                reply_markup=self.keyboards.main_menu(),
+                reply_markup=self.keyboards.main_menu()
             )
 
     async def send_pages_to_user(self, user_id: int, page_number: int):
@@ -497,6 +502,7 @@ class PDFSenderBot:
             # Get user settings
             user_settings = self.user_settings.get_user_settings(user_id)
             pages_per_send = user_settings["pages_per_send"]
+            image_quality = user_settings["image_quality"]
             notifications_enabled = user_settings["notifications_enabled"]
 
             # Log user action
@@ -524,7 +530,7 @@ class PDFSenderBot:
                 await self.bot.send_message(
                     user_id,
                     f"📖 **Страница {page_number} из {total_pages}**",
-                    parse_mode="Markdown",
+                    parse_mode="Markdown"
                 )
 
             # Send each page as a photo
@@ -534,7 +540,12 @@ class PDFSenderBot:
 
                 # Send photo
                 photo = FSInputFile(image_path)
-                await self.bot.send_photo(chat_id=user_id, photo=photo, caption=caption)
+                await self.bot.send_photo(
+                    chat_id=user_id,
+                    photo=photo,
+                    caption=caption,
+                    reply_markup=self.keyboards.page_actions_menu(page_number + i),
+                )
 
             # Update last sent time and current page
             self.db.update_last_sent(user_id)
@@ -583,6 +594,7 @@ class PDFSenderBot:
                     # Get user's schedule settings
                     schedule_time = user_settings["schedule_time"]
                     interval_hours = user_settings["interval_hours"]
+                    pages_per_send = user_settings["pages_per_send"]
 
                     # Check if it's time to send based on schedule
                     should_send = False
@@ -591,12 +603,7 @@ class PDFSenderBot:
                         # Parse schedule time (HH:MM format)
                         try:
                             schedule_hour, schedule_minute = map(int, schedule_time.split(":"))
-                            schedule_today = now.replace(
-                                hour=schedule_hour,
-                                minute=schedule_minute,
-                                second=0,
-                                microsecond=0,
-                            )
+                            schedule_today = now.replace(hour=schedule_hour, minute=schedule_minute, second=0, microsecond=0)
 
                             # Check if we should send at this scheduled time
                             last_sent = self.db.get_last_sent(user_id)
@@ -610,16 +617,14 @@ class PDFSenderBot:
                                 if today > last_sent_date and now >= schedule_today:
                                     should_send = True
                         except ValueError:
-                            logger.warning(
-                                f"Invalid schedule time format for user {user_id}: "
-                                f"{schedule_time}"
-                            )
+                            logger.warning(f"Invalid schedule time format for user {user_id}: {schedule_time}")
                     else:
                         # Use interval-based sending
                         last_sent = self.db.get_last_sent(user_id)
-                        if not last_sent or (
-                            now - last_sent
-                        ).total_seconds() >= interval_hours * 3600:
+                        if (
+                            not last_sent
+                            or (now - last_sent).total_seconds() >= interval_hours * 3600
+                        ):
                             should_send = True
 
                     if should_send:
@@ -634,10 +639,7 @@ class PDFSenderBot:
 
                         # Send pages
                         await self.send_pages_to_user(user_id, current_page)
-                        logger.info(
-                            f"Sent scheduled pages to user {user_id} "
-                            f"(page {current_page})"
-                        )
+                        logger.info(f"Sent scheduled pages to user {user_id} (page {current_page})")
                     else:
                         # Log next send time
                         last_sent = self.db.get_last_sent(user_id)
@@ -665,10 +667,8 @@ class PDFSenderBot:
 
         # Check if user exists
         if not self.db.get_user(user_id):
-            await message.reply(
-                "Вам нужно сначала запустить бота командой /start!",
-                reply_markup=self.keyboards.main_menu(),
-            )
+            await message.reply("Вам нужно сначала запустить бота командой /start!",
+                               reply_markup=self.keyboards.main_menu())
             return
 
         await message.reply(
@@ -678,7 +678,7 @@ class PDFSenderBot:
             f"• Максимальный размер: {Config.MAX_FILE_SIZE_MB}MB\n"
             "• Только PDF формат\n"
             "• Файл должен содержать текст или изображения",
-            parse_mode="Markdown",
+            parse_mode="Markdown"
         )
 
         # Set state to waiting for file
@@ -698,18 +698,14 @@ class PDFSenderBot:
         try:
             # Check if message contains a document
             if not message.document:
-                await message.reply(
-                    "❌ Пожалуйста, отправьте PDF файл.",
-                    reply_markup=self.keyboards.main_menu(),
-                )
+                await message.reply("❌ Пожалуйста, отправьте PDF файл.",
+                                   reply_markup=self.keyboards.main_menu())
                 return
 
             # Check if the file is a PDF
             if not message.document.mime_type == "application/pdf":
-                await message.reply(
-                    "❌ Пожалуйста, отправьте именно PDF файл.",
-                    reply_markup=self.keyboards.main_menu(),
-                )
+                await message.reply("❌ Пожалуйста, отправьте именно PDF файл.",
+                                   reply_markup=self.keyboards.main_menu())
                 return
 
             # Check file size before downloading
@@ -720,7 +716,7 @@ class PDFSenderBot:
                     f"Максимальный размер: {Config.MAX_FILE_SIZE_MB}MB\n"
                     f"Размер вашего файла: {file_size / 1024 / 1024:.1f}MB",
                     parse_mode="Markdown",
-                    reply_markup=self.keyboards.main_menu(),
+                    reply_markup=self.keyboards.main_menu()
                 )
                 return
 
@@ -750,7 +746,7 @@ class PDFSenderBot:
             await message.reply(
                 "📥 **Загружаю и проверяю ваш PDF...**\n\n"
                 "⏳ Это может занять несколько секунд",
-                parse_mode="Markdown",
+                parse_mode="Markdown"
             )
             await self.bot.download_file(file_path, local_file_path)
 
@@ -766,11 +762,9 @@ class PDFSenderBot:
                 await message.reply(
                     f"❌ **Ошибка валидации PDF**\n\n{validation_message}",
                     parse_mode="Markdown",
-                    reply_markup=self.keyboards.main_menu(),
+                    reply_markup=self.keyboards.main_menu()
                 )
-                BotLogger.log_error(
-                    f"PDF validation failed for user {user_id}", validation_message
-                )
+                BotLogger.log_error(f"PDF validation failed for user {user_id}", validation_message)
                 return
 
             # Create a PDFReader instance to validate and set the PDF
@@ -781,6 +775,9 @@ class PDFSenderBot:
 
             if success:
                 total_pages = self.db.get_total_pages(user_id)
+                file_size_mb = (
+                    f"{file_size / 1024 / 1024:.1f}MB" if file_size else "Unknown"
+                )
                 await message.reply(
                     f"✅ **PDF успешно загружен!**\n\n"
                     f"📚 **Книга:** {sanitized_filename}\n"
@@ -789,12 +786,11 @@ class PDFSenderBot:
                     f"📖 Чтение начинается с первой страницы.\n"
                     f"Используйте кнопки ниже для навигации.",
                     parse_mode="Markdown",
-                    reply_markup=self.keyboards.main_menu(),
+                    reply_markup=self.keyboards.main_menu()
                 )
                 BotLogger.log_user_action(
-                    user_id,
-                    username,
-                    f"pdf_uploaded: {sanitized_filename} ({total_pages} pages)",
+                    user_id, username,
+                    f"pdf_uploaded: {sanitized_filename} ({total_pages} pages)"
                 )
             else:
                 await message.reply(
@@ -802,15 +798,12 @@ class PDFSenderBot:
                     "Возникла проблема при обработке вашего файла. "
                     "Попробуйте другой PDF файл.",
                     parse_mode="Markdown",
-                    reply_markup=self.keyboards.main_menu(),
+                    reply_markup=self.keyboards.main_menu()
                 )
                 # Clean up the file if there was an error
                 if os.path.exists(local_file_path):
                     os.remove(local_file_path)
-                BotLogger.log_error(
-                    f"PDF processing failed for user {user_id}",
-                    "set_pdf_for_user returned False",
-                )
+                BotLogger.log_error(f"PDF processing failed for user {user_id}", "set_pdf_for_user returned False")
 
         except Exception as e:
             BotLogger.log_error(f"Error processing PDF upload for user {user_id}", e)
@@ -819,7 +812,7 @@ class PDFSenderBot:
                 "При обработке вашего PDF произошла ошибка. "
                 "Попробуйте еще раз.",
                 parse_mode="Markdown",
-                reply_markup=self.keyboards.main_menu(),
+                reply_markup=self.keyboards.main_menu()
             )
         finally:
             # Reset the state
@@ -838,9 +831,10 @@ class PDFSenderBot:
         # Check if user exists
         if not self.db.get_user(user_id):
             await message.reply(
-                "❌ **Необходимо запустить бота**\n\n" "Используйте команду /start",
+                "❌ **Необходимо запустить бота**\n\n"
+                "Используйте команду /start",
                 parse_mode="Markdown",
-                reply_markup=self.keyboards.main_menu(),
+                reply_markup=self.keyboards.main_menu()
             )
             return
 
@@ -852,7 +846,7 @@ class PDFSenderBot:
                 "Вы еще не загрузили книгу! "
                 "Используйте команду /upload для добавления книги.",
                 parse_mode="Markdown",
-                reply_markup=self.keyboards.main_menu(),
+                reply_markup=self.keyboards.main_menu()
             )
             return
 
@@ -874,7 +868,7 @@ class PDFSenderBot:
         await message.reply(
             book_info,
             parse_mode="Markdown",
-            reply_markup=self.keyboards.book_management(),
+            reply_markup=self.keyboards.book_management()
         )
 
     async def stats_command(self, message: types.Message):
@@ -890,9 +884,10 @@ class PDFSenderBot:
         # Check if user exists
         if not self.db.get_user(user_id):
             await message.reply(
-                "❌ **Необходимо запустить бота**\n\n" "Используйте команду /start",
+                "❌ **Необходимо запустить бота**\n\n"
+                "Используйте команду /start",
                 parse_mode="Markdown",
-                reply_markup=self.keyboards.main_menu(),
+                reply_markup=self.keyboards.main_menu()
             )
             return
 
@@ -911,20 +906,9 @@ class PDFSenderBot:
 
             # Storage information
             stats_text += "💾 **Использование хранилища:**\n"
-            stats_text += (
-                f"📸 Сгенерированные изображения: "
-                f"{CleanupManager.format_file_size(storage_stats['output_dir_size'])} "
-                f"({storage_stats['output_dir_files']} файлов)\n"
-            )
-            stats_text += (
-                f"📚 Загруженные PDF: "
-                f"{CleanupManager.format_file_size(storage_stats['upload_dir_size'])} "
-                f"({storage_stats['upload_dir_files']} файлов)\n"
-            )
-            stats_text += (
-                f"💿 Общий размер: "
-                f"{CleanupManager.format_file_size(storage_stats['total_size'])}\n\n"
-            )
+            stats_text += f"📸 Сгенерированные изображения: {CleanupManager.format_file_size(storage_stats['output_dir_size'])} ({storage_stats['output_dir_files']} файлов)\n"
+            stats_text += f"📚 Загруженные PDF: {CleanupManager.format_file_size(storage_stats['upload_dir_size'])} ({storage_stats['upload_dir_files']} файлов)\n"
+            stats_text += f"💿 Общий размер: {CleanupManager.format_file_size(storage_stats['total_size'])}\n\n"
 
             # User reading stats
             if pdf_path and os.path.exists(pdf_path):
@@ -949,9 +933,7 @@ class PDFSenderBot:
                             pages_per_day = (
                                 current_page / days_reading if days_reading > 0 else 0
                             )
-                            stats_text += (
-                                f"⚡ Темп чтения: {pages_per_day:.1f} стр/день\n"
-                            )
+                            stats_text += f"⚡ Темп чтения: {pages_per_day:.1f} стр/день\n"
 
                             if progress > 0:
                                 estimated_days_left = (
@@ -960,10 +942,7 @@ class PDFSenderBot:
                                     else 0
                                 )
                                 if estimated_days_left > 0:
-                                    stats_text += (
-                                        f"⏰ Ожидаемое завершение: "
-                                        f"{estimated_days_left:.0f} дней\n"
-                                    )
+                                    stats_text += f"⏰ Ожидаемое завершение: {estimated_days_left:.0f} дней\n"
                         except (ValueError, TypeError):
                             pass
 
@@ -976,26 +955,18 @@ class PDFSenderBot:
             stats_text += f"📄 Страниц за раз: {settings['pages_per_send']}\n"
             stats_text += f"⏰ Интервал отправки: {settings['interval_hours']} ч\n"
             stats_text += f"🖼️ Качество изображений: {settings['image_quality']}\n"
-            stats_text += (
-                f"🔄 Автоотправка: "
-                f"{'✅ Включена' if settings['auto_send_enabled'] else '❌ Отключена'}\n"
-            )
-            stats_text += (
-                f"🔔 Уведомления: "
-                f"{'✅ Включены' if settings['notifications_enabled'] else '❌ Отключены'}\n\n"
-            )
+            stats_text += f"🔄 Автоотправка: {'✅ Включена' if settings['auto_send_enabled'] else '❌ Отключена'}\n"
+            stats_text += f"🔔 Уведомления: {'✅ Включены' if settings['notifications_enabled'] else '❌ Отключены'}\n\n"
 
             # System configuration info
             stats_text += "🔧 **Системные настройки:**\n"
             stats_text += f"📁 Макс. размер файла: {Config.MAX_FILE_SIZE_MB}MB\n"
-            stats_text += (
-                f"🗂️ Хранение изображений: {Config.IMAGE_RETENTION_DAYS} дней\n"
-            )
+            stats_text += f"🗂️ Хранение изображений: {Config.IMAGE_RETENTION_DAYS} дней\n"
 
             await message.reply(
                 stats_text,
                 parse_mode="Markdown",
-                reply_markup=self.keyboards.statistics_menu(),
+                reply_markup=self.keyboards.statistics_menu()
             )
 
         except Exception as e:
@@ -1005,7 +976,7 @@ class PDFSenderBot:
                 "Произошла ошибка при создании статистики. "
                 "Попробуйте еще раз.",
                 parse_mode="Markdown",
-                reply_markup=self.keyboards.main_menu(),
+                reply_markup=self.keyboards.main_menu()
             )
 
     async def cleanup_old_files(self):
@@ -1022,8 +993,7 @@ class PDFSenderBot:
             total_deleted = deleted_images + deleted_uploads
             if total_deleted > 0:
                 logger.info(
-                    f"Cleanup completed: {deleted_images} images, "
-                    f"{deleted_uploads} uploads deleted"
+                    f"Cleanup completed: {deleted_images} images, {deleted_uploads} uploads deleted"
                 )
 
         except Exception as e:
@@ -1051,7 +1021,9 @@ class PDFSenderBot:
         )
 
         await message.answer(
-            admin_text, reply_markup=self.keyboards.admin_menu(), parse_mode="Markdown"
+            admin_text,
+            reply_markup=self.keyboards.admin_menu(),
+            parse_mode="Markdown"
         )
 
     async def users_command(self, message: types.Message):
@@ -1091,23 +1063,17 @@ class PDFSenderBot:
             )
 
             # Show last 10 users
-            recent_users = sorted(
-                users, key=lambda x: x.get("joined_at") or "", reverse=True
-            )[:10]
+            recent_users = sorted(users, key=lambda x: x.get("joined_at") or "", reverse=True)[:10]
             for i, user in enumerate(recent_users, 1):
                 user_info = user.get("username", "Без имени")
-                join_date = (
-                    user.get("joined_at", "Неизвестно")[:10]
-                    if user.get("joined_at")
-                    else "Неизвестно"
-                )
+                join_date = user.get("joined_at", "Неизвестно")[:10] if user.get("joined_at") else "Неизвестно"
                 current_page = user.get("current_page", 1)
                 users_text += f"{i}. @{user_info} (стр. {current_page}) - {join_date}\n"
 
             await message.answer(
                 users_text,
                 reply_markup=self.keyboards.users_management_menu(),
-                parse_mode="Markdown",
+                parse_mode="Markdown"
             )
 
         except Exception as e:
@@ -1115,7 +1081,7 @@ class PDFSenderBot:
             await message.answer(
                 "❌ **Ошибка получения данных пользователей**\n\n"
                 "Произошла ошибка при загрузке информации о пользователях.",
-                parse_mode="Markdown",
+                parse_mode="Markdown"
             )
 
     async def system_command(self, message: types.Message):
@@ -1130,6 +1096,7 @@ class PDFSenderBot:
 
         try:
             import psutil
+            from datetime import timedelta
 
             # System info
             cpu_percent = psutil.cpu_percent(interval=1)
@@ -1137,9 +1104,7 @@ class PDFSenderBot:
             disk = psutil.disk_usage(os.getcwd())
 
             # Bot uptime (approximate)
-            uptime = datetime.now() - datetime.now().replace(
-                hour=0, minute=0, second=0, microsecond=0
-            )
+            uptime = datetime.now() - datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
             # Storage stats
             storage_stats = CleanupManager.get_storage_usage()
@@ -1148,19 +1113,12 @@ class PDFSenderBot:
                 f"🖥️ **Системная информация** 🖥️\n\n"
                 f"⚡ **Производительность:**\n"
                 f"🔥 CPU: {cpu_percent}%\n"
-                f"🧠 RAM: {memory.percent}% ({memory.used // 1024 // 1024}MB / "
-                f"{memory.total // 1024 // 1024}MB)\n"
-                f"💾 Диск: {disk.percent}% ({disk.used // 1024 // 1024 // 1024}GB / "
-                f"{disk.total // 1024 // 1024 // 1024}GB)\n\n"
+                f"🧠 RAM: {memory.percent}% ({memory.used // 1024 // 1024}MB / {memory.total // 1024 // 1024}MB)\n"
+                f"💾 Диск: {disk.percent}% ({disk.used // 1024 // 1024 // 1024}GB / {disk.total // 1024 // 1024 // 1024}GB)\n\n"
                 f"📁 **Хранилище бота:**\n"
-                f"📸 Изображения: "
-                f"{CleanupManager.format_file_size(storage_stats['output_dir_size'])} "
-                f"({storage_stats['output_dir_files']} файлов)\n"
-                f"📚 PDF файлы: "
-                f"{CleanupManager.format_file_size(storage_stats['upload_dir_size'])} "
-                f"({storage_stats['upload_dir_files']} файлов)\n"
-                f"💿 Общий размер: "
-                f"{CleanupManager.format_file_size(storage_stats['total_size'])}\n\n"
+                f"📸 Изображения: {CleanupManager.format_file_size(storage_stats['output_dir_size'])} ({storage_stats['output_dir_files']} файлов)\n"
+                f"📚 PDF файлы: {CleanupManager.format_file_size(storage_stats['upload_dir_size'])} ({storage_stats['upload_dir_files']} файлов)\n"
+                f"💿 Общий размер: {CleanupManager.format_file_size(storage_stats['total_size'])}\n\n"
                 f"⚙️ **Конфигурация:**\n"
                 f"📄 Макс. размер файла: {Config.MAX_FILE_SIZE_MB}MB\n"
                 f"🗂️ Хранение изображений: {Config.IMAGE_RETENTION_DAYS} дней\n"
@@ -1170,7 +1128,7 @@ class PDFSenderBot:
             await message.answer(
                 system_text,
                 reply_markup=self.keyboards.system_menu(),
-                parse_mode="Markdown",
+                parse_mode="Markdown"
             )
 
         except ImportError:
@@ -1178,14 +1136,14 @@ class PDFSenderBot:
                 "❌ **Модуль psutil не установлен**\n\n"
                 "Для отображения системной информации требуется установить psutil:\n"
                 "`pip install psutil`",
-                parse_mode="Markdown",
+                parse_mode="Markdown"
             )
         except Exception as e:
             BotLogger.log_error(f"Error in system_command for user {user_id}", e)
             await message.answer(
                 "❌ **Ошибка получения системной информации**\n\n"
                 "Произошла ошибка при сборе данных о системе.",
-                parse_mode="Markdown",
+                parse_mode="Markdown"
             )
 
     async def logs_command(self, message: types.Message):
@@ -1204,34 +1162,33 @@ class PDFSenderBot:
 
             if not log_entries:
                 await message.answer(
-                    "📝 **Логи пусты**\n\n" "Нет доступных записей в логах.",
-                    parse_mode="Markdown",
+                    "📝 **Логи пусты**\n\n"
+                    "Нет доступных записей в логах.",
+                    parse_mode="Markdown"
                 )
                 return
 
             logs_text = "📝 **Последние записи логов** 📝\n\n"
 
             for entry in log_entries[-10:]:  # Show last 10 entries
-                timestamp = entry.get("timestamp", "Unknown")
-                level = entry.get("level", "INFO")
-                message_text = entry.get("message", "")[:100]  # Truncate long messages
+                timestamp = entry.get('timestamp', 'Unknown')
+                level = entry.get('level', 'INFO')
+                message_text = entry.get('message', '')[:100]  # Truncate long messages
 
                 # Add emoji based on log level
                 emoji = {
-                    "ERROR": "🔴",
-                    "WARNING": "🟡",
-                    "INFO": "🔵",
-                    "DEBUG": "⚪",
-                }.get(level, "⚪")
+                    'ERROR': '🔴',
+                    'WARNING': '🟡',
+                    'INFO': '🔵',
+                    'DEBUG': '⚪'
+                }.get(level, '⚪')
 
-                logs_text += (
-                    f"{emoji} `{timestamp[:19]}` [{level}]\n{message_text}...\n\n"
-                )
+                logs_text += f"{emoji} `{timestamp[:19]}` [{level}]\n{message_text}...\n\n"
 
             await message.answer(
                 logs_text,
                 reply_markup=self.keyboards.logs_menu(),
-                parse_mode="Markdown",
+                parse_mode="Markdown"
             )
 
         except Exception as e:
@@ -1239,7 +1196,7 @@ class PDFSenderBot:
             await message.answer(
                 "❌ **Ошибка получения логов**\n\n"
                 "Произошла ошибка при чтении файлов логов.",
-                parse_mode="Markdown",
+                parse_mode="Markdown"
             )
 
     async def backup_command(self, message: types.Message):
@@ -1267,12 +1224,13 @@ class PDFSenderBot:
             backup_path = backup_dir / backup_filename
 
             await message.answer(
-                "📦 **Создание резервной копии...**\n\n" "⏳ Пожалуйста, подождите...",
-                parse_mode="Markdown",
+                "📦 **Создание резервной копии...**\n\n"
+                "⏳ Пожалуйста, подождите...",
+                parse_mode="Markdown"
             )
 
             # Create zip backup
-            with zipfile.ZipFile(backup_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+            with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
                 # Backup database
                 if os.path.exists(Config.DATABASE_PATH):
                     zipf.write(Config.DATABASE_PATH, "database.json")
@@ -1282,40 +1240,35 @@ class PDFSenderBot:
                     zipf.write("user_settings.json", "user_settings.json")
 
                 # Backup config (without sensitive data)
-                zipf.writestr(
-                    "config_backup.txt",
+                zipf.writestr("config_backup.txt",
                     f"PAGES_PER_SEND={Config.PAGES_PER_SEND}\n"
                     f"INTERVAL_HOURS={Config.INTERVAL_HOURS}\n"
                     f"SCHEDULE_TIME={Config.SCHEDULE_TIME}\n"
                     f"MAX_FILE_SIZE_MB={Config.MAX_FILE_SIZE_MB}\n"
                     f"IMAGE_RETENTION_DAYS={Config.IMAGE_RETENTION_DAYS}\n"
-                    f"IMAGE_QUALITY={Config.IMAGE_QUALITY}\n",
+                    f"IMAGE_QUALITY={Config.IMAGE_QUALITY}\n"
                 )
 
             backup_size = os.path.getsize(backup_path) / 1024 / 1024  # MB
 
             await message.answer(
-                (
-                    f"✅ **Резервная копия создана!** ✅\n\n"
-                    f"📁 **Файл:** `{backup_filename}`\n"
-                    f"📊 **Размер:** {backup_size:.2f} MB\n"
-                    f"📅 **Дата:** {datetime.now().strftime('%d.%m.%Y %H:%M')}\n\n"
-                    f"💾 Резервная копия сохранена в папке `backups/`"
-                ),
+                f"✅ **Резервная копия создана!** ✅\n\n"
+                f"📁 **Файл:** `{backup_filename}`\n"
+                f"📊 **Размер:** {backup_size:.2f} MB\n"
+                f"📅 **Дата:** {datetime.now().strftime('%d.%m.%Y %H:%M')}\n\n"
+                f"💾 Резервная копия сохранена в папке `backups/`",
                 parse_mode="Markdown",
-                reply_markup=self.keyboards.backup_menu(),
+                reply_markup=self.keyboards.backup_menu()
             )
 
-            BotLogger.log_user_action(
-                user_id, username, f"backup_created: {backup_filename}"
-            )
+            BotLogger.log_user_action(user_id, username, f"backup_created: {backup_filename}")
 
         except Exception as e:
             BotLogger.log_error(f"Error in backup_command for user {user_id}", e)
             await message.answer(
                 "❌ **Ошибка создания резервной копии**\n\n"
                 "Произошла ошибка при создании backup файла.",
-                parse_mode="Markdown",
+                parse_mode="Markdown"
             )
 
     async def cleanup_command(self, message: types.Message):
@@ -1332,7 +1285,7 @@ class PDFSenderBot:
             await message.answer(
                 "🧹 **Запуск очистки файлов...**\n\n"
                 "⏳ Удаление старых изображений и временных файлов...",
-                parse_mode="Markdown",
+                parse_mode="Markdown"
             )
 
             # Get storage stats before cleanup
@@ -1346,45 +1299,58 @@ class PDFSenderBot:
             stats_after = CleanupManager.get_storage_usage()
 
             # Calculate freed space
-            freed_space = stats_before["total_size"] - stats_after["total_size"]
+            freed_space = stats_before['total_size'] - stats_after['total_size']
 
             cleanup_text = (
                 f"✅ **Очистка завершена!** ✅\n\n"
                 f"🗑️ **Удалено:**\n"
                 f"📸 Изображений: {deleted_images}\n"
                 f"📁 Загрузок: {deleted_uploads}\n\n"
-                f"💾 **Освобождено места:** "
-                f"{CleanupManager.format_file_size(freed_space)}\n\n"
+                f"💾 **Освобождено места:** {CleanupManager.format_file_size(freed_space)}\n\n"
                 f"📊 **Текущее использование:**\n"
-                f"📸 Изображения: "
-                f"{CleanupManager.format_file_size(stats_after['output_dir_size'])} "
-                f"({stats_after['output_dir_files']} файлов)\n"
-                f"📚 PDF файлы: "
-                f"{CleanupManager.format_file_size(stats_after['upload_dir_size'])} "
-                f"({stats_after['upload_dir_files']} файлов)\n"
-                f"💿 Общий размер: "
-                f"{CleanupManager.format_file_size(stats_after['total_size'])}"
+                f"📸 Изображения: {CleanupManager.format_file_size(stats_after['output_dir_size'])} ({stats_after['output_dir_files']} файлов)\n"
+                f"📚 PDF файлы: {CleanupManager.format_file_size(stats_after['upload_dir_size'])} ({stats_after['upload_dir_files']} файлов)\n"
+                f"💿 Общий размер: {CleanupManager.format_file_size(stats_after['total_size'])}"
             )
 
             await message.answer(
                 cleanup_text,
                 reply_markup=self.keyboards.cleanup_menu(),
-                parse_mode="Markdown",
+                parse_mode="Markdown"
             )
 
-            BotLogger.log_user_action(
-                user_id,
-                username,
-                f"manual_cleanup: {deleted_images + deleted_uploads} files deleted",
-            )
+            BotLogger.log_user_action(user_id, username, f"manual_cleanup: {deleted_images + deleted_uploads} files deleted")
 
         except Exception as e:
             BotLogger.log_error(f"Error in cleanup_command for user {user_id}", e)
             await message.answer(
                 "❌ **Ошибка очистки**\n\n"
                 "Произошла ошибка при выполнении очистки файлов.",
-                parse_mode="Markdown",
+                parse_mode="Markdown"
             )
+
+    async def leaderboard_command(self, message: types.Message):
+        """Handle /leaderboard command"""
+        if message.from_user is None:
+            return
+
+        user_id = message.from_user.id
+        username = message.from_user.username or "Unknown"
+
+        BotLogger.log_user_action(user_id, username, "leaderboard_command")
+
+        leaderboard = self.db.get_leaderboard()
+
+        leaderboard_text = "🏆 **Таблица лидеров** 🏆\n\n"
+
+        for i, user in enumerate(leaderboard, 1):
+            username = user.get("username") or f"user_{user['id']}"
+            leaderboard_text += f"{i}. @{username} - {user.get('points', 0)} очков\n"
+
+        await message.answer(
+            leaderboard_text,
+            parse_mode="Markdown"
+        )
 
     async def start_polling(self):
         """Start the bot"""

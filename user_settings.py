@@ -2,7 +2,7 @@ import json
 import logging
 from datetime import datetime, time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Dict, Optional, Any
 
 from config import Config
 
@@ -21,11 +21,9 @@ class UserSettings:
         """Загрузка настроек из файла"""
         try:
             if self.settings_file.exists():
-                with open(self.settings_file, "r", encoding="utf-8") as f:
+                with open(self.settings_file, 'r', encoding='utf-8') as f:
                     self.settings = json.load(f)
-                logger.info(
-                    f"Загружены настройки для {len(self.settings)} пользователей"
-                )
+                logger.info(f"Загружены настройки для {len(self.settings)} пользователей")
             else:
                 self.settings = {}
                 logger.info("Создан новый файл настроек")
@@ -36,7 +34,7 @@ class UserSettings:
     def save_settings(self):
         """Сохранение настроек в файл"""
         try:
-            with open(self.settings_file, "w", encoding="utf-8") as f:
+            with open(self.settings_file, 'w', encoding='utf-8') as f:
                 json.dump(self.settings, f, ensure_ascii=False, indent=2)
             logger.info("Настройки сохранены")
         except Exception as e:
@@ -56,7 +54,7 @@ class UserSettings:
                 "image_quality": Config.IMAGE_QUALITY,
                 "notifications_enabled": True,
                 "created_at": datetime.now().isoformat(),
-                "last_updated": datetime.now().isoformat(),
+                "last_updated": datetime.now().isoformat()
             }
             self.save_settings()
 
@@ -78,10 +76,7 @@ class UserSettings:
             self.settings[user_key] = user_settings
             self.save_settings()
 
-            logger.info(
-                f"Обновлена настройка {setting_name} для "
-                f"пользователя {user_id}: {value}"
-            )
+            logger.info(f"Обновлена настройка {setting_name} для пользователя {user_id}: {value}")
             return True
         except Exception as e:
             logger.error(f"Ошибка обновления настройки: {e}")
@@ -96,7 +91,7 @@ class UserSettings:
             "auto_send_enabled": lambda x: isinstance(x, bool),
             "timezone": lambda x: isinstance(x, str) and len(x) <= 50,
             "image_quality": lambda x: isinstance(x, int) and 1 <= x <= 100,
-            "notifications_enabled": lambda x: isinstance(x, bool),
+            "notifications_enabled": lambda x: isinstance(x, bool)
         }
 
         validator = validators.get(setting_name)
@@ -117,20 +112,12 @@ class UserSettings:
         users = []
         for user_id, settings in self.settings.items():
             if settings.get("auto_send_enabled", True):
-                users.append(
-                    {
-                        "user_id": int(user_id),
-                        "schedule_time": settings.get(
-                            "schedule_time", Config.SCHEDULE_TIME
-                        ),
-                        "pages_per_send": settings.get(
-                            "pages_per_send", Config.PAGES_PER_SEND
-                        ),
-                        "interval_hours": settings.get(
-                            "interval_hours", Config.INTERVAL_HOURS
-                        ),
-                    }
-                )
+                users.append({
+                    "user_id": int(user_id),
+                    "schedule_time": settings.get("schedule_time", Config.SCHEDULE_TIME),
+                    "pages_per_send": settings.get("pages_per_send", Config.PAGES_PER_SEND),
+                    "interval_hours": settings.get("interval_hours", Config.INTERVAL_HOURS)
+                })
         return users
 
     def delete_user_settings(self, user_id: int) -> bool:

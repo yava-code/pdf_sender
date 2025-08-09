@@ -1,9 +1,8 @@
 import json
-import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, List
-
+from typing import List, Dict, Any
+import logging
 
 class BotLogger:
     """Logger for bot actions and events"""
@@ -14,7 +13,7 @@ class BotLogger:
     def _ensure_log_file(cls):
         """Ensure log file exists"""
         if not os.path.exists(cls.LOG_FILE):
-            with open(cls.LOG_FILE, "w", encoding="utf-8") as f:
+            with open(cls.LOG_FILE, 'w', encoding='utf-8') as f:
                 json.dump({"logs": []}, f, ensure_ascii=False, indent=2)
 
     @classmethod
@@ -22,7 +21,7 @@ class BotLogger:
         """Load logs from file"""
         cls._ensure_log_file()
         try:
-            with open(cls.LOG_FILE, "r", encoding="utf-8") as f:
+            with open(cls.LOG_FILE, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except (json.JSONDecodeError, FileNotFoundError):
             return {"logs": []}
@@ -31,7 +30,7 @@ class BotLogger:
     def _save_logs(cls, data: Dict[str, List[Dict]]):
         """Save logs to file"""
         try:
-            with open(cls.LOG_FILE, "w", encoding="utf-8") as f:
+            with open(cls.LOG_FILE, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
         except Exception as e:
             logging.error(f"Error saving logs: {e}")
@@ -49,7 +48,7 @@ class BotLogger:
                 "user_id": user_id,
                 "username": username,
                 "action": action,
-                "message": f"User {username} ({user_id}) performed action: {action}",
+                "message": f"User {username} ({user_id}) performed action: {action}"
             }
 
             data["logs"].append(log_entry)
@@ -75,7 +74,7 @@ class BotLogger:
                 "type": "error",
                 "message": message,
                 "error": str(error),
-                "error_type": type(error).__name__,
+                "error_type": type(error).__name__
             }
 
             data["logs"].append(log_entry)
@@ -101,7 +100,7 @@ class BotLogger:
                 "type": "system_event",
                 "event": event,
                 "details": details,
-                "message": f"System event: {event} - {details}",
+                "message": f"System event: {event} - {details}"
             }
 
             data["logs"].append(log_entry)
@@ -168,22 +167,12 @@ class BotLogger:
 
             stats = {
                 "total_logs": len(logs),
-                "error_count": len(
-                    [log for log in logs if log.get("level") == "ERROR"]
-                ),
-                "warning_count": len(
-                    [log for log in logs if log.get("level") == "WARNING"]
-                ),
+                "error_count": len([log for log in logs if log.get("level") == "ERROR"]),
+                "warning_count": len([log for log in logs if log.get("level") == "WARNING"]),
                 "info_count": len([log for log in logs if log.get("level") == "INFO"]),
-                "debug_count": len(
-                    [log for log in logs if log.get("level") == "DEBUG"]
-                ),
-                "user_actions": len(
-                    [log for log in logs if log.get("type") == "user_action"]
-                ),
-                "system_events": len(
-                    [log for log in logs if log.get("type") == "system_event"]
-                ),
+                "debug_count": len([log for log in logs if log.get("level") == "DEBUG"]),
+                "user_actions": len([log for log in logs if log.get("type") == "user_action"]),
+                "system_events": len([log for log in logs if log.get("type") == "system_event"])
             }
 
             if logs:

@@ -133,6 +133,7 @@ class DatabaseManager:
                 "total_pages": total_pages,
                 "pdf_path": pdf_path or Config.PDF_PATH,
                 "last_sent": None,
+                "points": 0,
             }
         )
 
@@ -154,6 +155,51 @@ class DatabaseManager:
                 return user
 
         return None
+
+    def add_points(self, user_id: int, points: int):
+        """Add points to a user's score"""
+        data = self.load_data()
+        users = data.get("users", [])
+
+        for user in users:
+            if user["id"] == user_id:
+                if "points" not in user:
+                    user["points"] = 0
+                user["points"] += points
+                self.save_data(data)
+                return
+
+        # If user not found, add them and give them the points
+        self.add_user(user_id, None)
+        self.add_points(user_id, points)
+
+    def get_leaderboard(self) -> List[Dict[str, Any]]:
+        """Get the leaderboard of users sorted by points"""
+        data = self.load_data()
+        users = data.get("users", [])
+
+        # Sort users by points in descending order
+        sorted_users = sorted(users, key=lambda u: u.get("points", 0), reverse=True)
+
+        return sorted_users[:10]  # Return top 10
+
+    def mark_page_as_read(self, user_id: int, page_number: int):
+        """Mark a page as read for a user"""
+        data = self.load_data()
+        users = data.get("users", [])
+
+        for user in users:
+            if user["id"] == user_id:
+                if "read_pages" not in user:
+                    user["read_pages"] = []
+                if page_number not in user["read_pages"]:
+                    user["read_pages"].append(page_number)
+                    self.save_data(data)
+                return
+
+        # If user not found, add them and mark the page as read
+        self.add_user(user_id, None)
+        self.mark_page_as_read(user_id, page_number)
 
     def set_pdf_path(self, user_id: int, pdf_path: str):
         """Set PDF path for a user"""

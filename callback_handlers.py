@@ -1,13 +1,12 @@
 import logging
-from typing import TYPE_CHECKING
-
 from aiogram import types
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+from typing import TYPE_CHECKING
 
 from keyboards import BotKeyboards
-from logger_config import BotLogger
 from user_settings import UserSettings
+from logger_config import BotLogger
 
 if TYPE_CHECKING:
     from main import PDFSenderBot
@@ -17,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 class SettingsStates(StatesGroup):
     """Состояния для настройки параметров"""
-
     waiting_for_custom_time = State()
     waiting_for_page_number = State()
 
@@ -25,7 +23,7 @@ class SettingsStates(StatesGroup):
 class CallbackHandler:
     """Обработчик callback запросов от inline клавиатур"""
 
-    def __init__(self, bot_instance: "PDFSenderBot"):
+    def __init__(self, bot_instance: 'PDFSenderBot'):
         self.bot = bot_instance
         self.user_settings = UserSettings()
         self.keyboards = BotKeyboards()
@@ -108,21 +106,23 @@ class CallbackHandler:
                 await self._handle_backup_create(callback)
             elif data == "cleanup_run":
                 await self._handle_cleanup_run(callback)
+            elif data.startswith("mark_as_read_"):
+                await self._mark_as_read(callback, data)
+            elif data == "leaderboard":
+                await self._show_leaderboard(callback)
             else:
                 await callback.answer("Неизвестная команда", show_alert=True)
 
         except Exception as e:
             logger.error(f"Ошибка обработки callback {callback.data}: {e}")
-            await callback.answer(
-                "Произошла ошибка. Попробуйте еще раз.", show_alert=True
-            )
+            await callback.answer("Произошла ошибка. Попробуйте еще раз.", show_alert=True)
 
     async def _show_main_menu(self, callback: types.CallbackQuery):
         """Показать главное меню"""
         await callback.message.edit_text(
             "🏠 **Главное меню**\n\nВыберите действие:",
             reply_markup=self.keyboards.main_menu(),
-            parse_mode="Markdown",
+            parse_mode="Markdown"
         )
         await callback.answer()
 
@@ -140,7 +140,9 @@ class CallbackHandler:
         )
 
         await callback.message.edit_text(
-            admin_text, reply_markup=self.keyboards.admin_menu(), parse_mode="Markdown"
+            admin_text,
+            reply_markup=self.keyboards.admin_menu(),
+            parse_mode="Markdown"
         )
 
     async def _handle_admin_users(self, callback: types.CallbackQuery):
@@ -184,7 +186,7 @@ class CallbackHandler:
         await callback.message.edit_text(
             "⚙️ **Настройки бота**\n\nВыберите параметр для изменения:",
             reply_markup=self.keyboards.settings_menu(),
-            parse_mode="Markdown",
+            parse_mode="Markdown"
         )
         await callback.answer()
 
@@ -196,7 +198,7 @@ class CallbackHandler:
         await callback.message.edit_text(
             settings_text,
             reply_markup=self.keyboards.settings_menu(),
-            parse_mode="Markdown",
+            parse_mode="Markdown"
         )
         await callback.answer()
 
@@ -206,13 +208,9 @@ class CallbackHandler:
         current_pages = user_settings["pages_per_send"]
 
         await callback.message.edit_text(
-            (
-                f"📄 **Количество страниц за раз**\n\n"
-                f"Текущее значение: {current_pages}\n"
-                f"Выберите новое значение:"
-            ),
+            f"📄 **Количество страниц за раз**\n\nТекущее значение: {current_pages}\nВыберите новое значение:",
             reply_markup=self.keyboards.pages_per_send_menu(),
-            parse_mode="Markdown",
+            parse_mode="Markdown"
         )
         await callback.answer()
 
@@ -222,13 +220,11 @@ class CallbackHandler:
             pages = int(data.split("_")[-1])
             user_id = callback.from_user.id
 
-            if self.user_settings.update_user_setting(
-                user_id, "pages_per_send", pages
-            ):
+            if self.user_settings.update_user_setting(user_id, "pages_per_send", pages):
                 await callback.message.edit_text(
                     f"✅ Количество страниц за раз установлено: **{pages}**",
                     reply_markup=self.keyboards.settings_menu(),
-                    parse_mode="Markdown",
+                    parse_mode="Markdown"
                 )
                 await callback.answer("Настройка сохранена!")
             else:
@@ -242,13 +238,9 @@ class CallbackHandler:
         current_time = user_settings["schedule_time"]
 
         await callback.message.edit_text(
-            (
-                f"⏰ **Время отправки**\n\n"
-                f"Текущее время: {current_time}\n"
-                f"Выберите новое время:"
-            ),
+            f"⏰ **Время отправки**\n\nТекущее время: {current_time}\nВыберите новое время:",
             reply_markup=self.keyboards.schedule_time_menu(),
-            parse_mode="Markdown",
+            parse_mode="Markdown"
         )
         await callback.answer()
 
@@ -257,25 +249,21 @@ class CallbackHandler:
         time_value = data.split("_")[-1]
         user_id = callback.from_user.id
 
-        if self.user_settings.update_user_setting(
-            user_id, "schedule_time", time_value
-        ):
+        if self.user_settings.update_user_setting(user_id, "schedule_time", time_value):
             await callback.message.edit_text(
                 f"✅ Время отправки установлено: **{time_value}**",
                 reply_markup=self.keyboards.settings_menu(),
-                parse_mode="Markdown",
+                parse_mode="Markdown"
             )
             await callback.answer("Настройка сохранена!")
         else:
             await callback.answer("Ошибка сохранения настройки", show_alert=True)
 
-    async def _request_custom_time(
-        self, callback: types.CallbackQuery, state: FSMContext
-    ):
+    async def _request_custom_time(self, callback: types.CallbackQuery, state: FSMContext):
         """Запросить ввод пользовательского времени"""
         await callback.message.edit_text(
             "⏰ **Введите время в формате HH:MM**\n\nНапример: 09:30 или 14:15",
-            parse_mode="Markdown",
+            parse_mode="Markdown"
         )
         await state.set_state(SettingsStates.waiting_for_custom_time)
         await callback.answer()
@@ -286,13 +274,9 @@ class CallbackHandler:
         current_interval = user_settings["interval_hours"]
 
         await callback.message.edit_text(
-            (
-                f"🔄 **Интервал отправки**\n\n"
-                f"Текущий интервал: {current_interval} ч.\n"
-                f"Выберите новый интервал:"
-            ),
+            f"🔄 **Интервал отправки**\n\nТекущий интервал: {current_interval} ч.\nВыберите новый интервал:",
             reply_markup=self.keyboards.interval_hours_menu(),
-            parse_mode="Markdown",
+            parse_mode="Markdown"
         )
         await callback.answer()
 
@@ -302,13 +286,11 @@ class CallbackHandler:
             hours = int(data.split("_")[-1])
             user_id = callback.from_user.id
 
-            if self.user_settings.update_user_setting(
-                user_id, "interval_hours", hours
-            ):
+            if self.user_settings.update_user_setting(user_id, "interval_hours", hours):
                 await callback.message.edit_text(
                     f"✅ Интервал отправки установлен: **{hours} ч.**",
                     reply_markup=self.keyboards.settings_menu(),
-                    parse_mode="Markdown",
+                    parse_mode="Markdown"
                 )
                 await callback.answer("Настройка сохранена!")
             else:
@@ -322,13 +304,9 @@ class CallbackHandler:
         current_quality = user_settings["image_quality"]
 
         await callback.message.edit_text(
-            (
-                f"🖼️ **Качество изображений**\n\n"
-                f"Текущее качество: {current_quality}%\n"
-                f"Выберите новое качество:"
-            ),
+            f"🖼️ **Качество изображений**\n\nТекущее качество: {current_quality}%\nВыберите новое качество:",
             reply_markup=self.keyboards.image_quality_menu(),
-            parse_mode="Markdown",
+            parse_mode="Markdown"
         )
         await callback.answer()
 
@@ -338,13 +316,11 @@ class CallbackHandler:
             quality = int(data.split("_")[-1])
             user_id = callback.from_user.id
 
-            if self.user_settings.update_user_setting(
-                user_id, "image_quality", quality
-            ):
+            if self.user_settings.update_user_setting(user_id, "image_quality", quality):
                 await callback.message.edit_text(
                     f"✅ Качество изображений установлено: **{quality}%**",
                     reply_markup=self.keyboards.settings_menu(),
-                    parse_mode="Markdown",
+                    parse_mode="Markdown"
                 )
                 await callback.answer("Настройка сохранена!")
             else:
@@ -359,14 +335,12 @@ class CallbackHandler:
         current_value = current_settings["auto_send_enabled"]
         new_value = not current_value
 
-        if self.user_settings.update_user_setting(
-            user_id, "auto_send_enabled", new_value
-        ):
+        if self.user_settings.update_user_setting(user_id, "auto_send_enabled", new_value):
             status = "включена" if new_value else "выключена"
             await callback.message.edit_text(
                 f"✅ Автоотправка **{status}**",
                 reply_markup=self.keyboards.settings_menu(),
-                parse_mode="Markdown",
+                parse_mode="Markdown"
             )
             await callback.answer(f"Автоотправка {status}!")
         else:
@@ -379,14 +353,12 @@ class CallbackHandler:
         current_value = current_settings["notifications_enabled"]
         new_value = not current_value
 
-        if self.user_settings.update_user_setting(
-            user_id, "notifications_enabled", new_value
-        ):
+        if self.user_settings.update_user_setting(user_id, "notifications_enabled", new_value):
             status = "включены" if new_value else "выключены"
             await callback.message.edit_text(
                 f"✅ Уведомления **{status}**",
                 reply_markup=self.keyboards.settings_menu(),
-                parse_mode="Markdown",
+                parse_mode="Markdown"
             )
             await callback.answer(f"Уведомления {status}!")
         else:
@@ -397,7 +369,7 @@ class CallbackHandler:
         await callback.message.edit_text(
             "📚 **Управление книгами**\n\nВыберите действие:",
             reply_markup=self.keyboards.books_menu(),
-            parse_mode="Markdown",
+            parse_mode="Markdown"
         )
         await callback.answer()
 
@@ -422,23 +394,18 @@ class CallbackHandler:
         total_pages = self.bot.pdf_reader.get_total_pages()
 
         await callback.message.edit_text(
-            (
-                f"📄 **Текущая страница: {current_page} из {total_pages}**\n\n"
-                "Выберите действие:"
-            ),
+            f"📄 **Текущая страница: {current_page} из {total_pages}**\n\nВыберите действие:",
             reply_markup=self.keyboards.navigation_menu(current_page, total_pages),
-            parse_mode="Markdown",
+            parse_mode="Markdown"
         )
         await callback.answer()
 
-    async def _request_page_number(
-        self, callback: types.CallbackQuery, state: FSMContext
-    ):
+    async def _request_page_number(self, callback: types.CallbackQuery, state: FSMContext):
         """Запросить номер страницы для перехода"""
         total_pages = self.bot.pdf_reader.get_total_pages()
         await callback.message.edit_text(
             f"🔍 **Переход к странице**\n\nВведите номер страницы (1-{total_pages}):",
-            parse_mode="Markdown",
+            parse_mode="Markdown"
         )
         await state.set_state(SettingsStates.waiting_for_page_number)
         await callback.answer()
@@ -474,8 +441,32 @@ class CallbackHandler:
 """
 
         await callback.message.edit_text(
-            stats_text, reply_markup=self.keyboards.main_menu(), parse_mode="Markdown"
+            stats_text,
+            reply_markup=self.keyboards.main_menu(),
+            parse_mode="Markdown"
         )
+        await callback.answer()
+
+    async def _mark_as_read(self, callback: types.CallbackQuery, data: str):
+        """Отметить страницу как прочитанную"""
+        try:
+            page_number = int(data.split("_")[-1])
+            user_id = callback.from_user.id
+
+            self.bot.db.mark_page_as_read(user_id, page_number)
+            self.bot.db.add_points(user_id, 1)
+
+            BotLogger.log_user_action(user_id, callback.from_user.username, f"mark_as_read: {page_number}")
+
+            await callback.answer(f"Страница {page_number} отмечена как прочитанная! +1 очко!", show_alert=True)
+
+        except (IndexError, ValueError) as e:
+            logger.error(f"Ошибка в _mark_as_read: {e}")
+            await callback.answer("Ошибка обработки запроса.", show_alert=True)
+
+    async def _show_leaderboard(self, callback: types.CallbackQuery):
+        """Показать таблицу лидеров"""
+        await self.bot.leaderboard_command(callback.message)
         await callback.answer()
 
     async def _show_help(self, callback: types.CallbackQuery):
@@ -516,6 +507,8 @@ class CallbackHandler:
 💡 **Совет:** Используйте кнопки для удобной навигации!"""
 
         await callback.message.edit_text(
-            help_text, reply_markup=self.keyboards.main_menu(), parse_mode="Markdown"
+            help_text,
+            reply_markup=self.keyboards.main_menu(),
+            parse_mode="Markdown"
         )
         await callback.answer()
