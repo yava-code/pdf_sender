@@ -53,6 +53,11 @@ class PDFSenderBot:
 
         # Register handlers
         self._register_handlers()
+    
+    @property
+    def db_manager(self):
+        """Property to access database manager"""
+        return self.db
 
     def _register_handlers(self):
         """Register all bot handlers"""
@@ -367,20 +372,30 @@ class PDFSenderBot:
 
             if image_paths:
                 photo = FSInputFile(image_paths[0])
+                progress_percent = int((current_page / total_pages) * 100) if total_pages > 0 else 0
+                caption = f"📖 **Прогресс чтения**\n\n"
+                caption += f"📄 Страница: {current_page}/{total_pages}\n"
+                caption += f"📊 Прогресс: {progress_percent}%"
+                
                 await self.bot.send_photo(
                     chat_id=user_id,
                     photo=photo,
-                    caption=f"📖 **Current page: {current_page} of {total_pages}**",
+                    caption=caption,
                     parse_mode="Markdown",
-                    reply_markup=self.keyboards.page_navigation()
+                    reply_markup=self.keyboards.reading_progress_menu(current_page, total_pages)
                 )
                 pdf_reader.cleanup_images()
             else:
+                progress_percent = int((current_page / total_pages) * 100) if total_pages > 0 else 0
+                text = f"📖 **Прогресс чтения**\n\n"
+                text += f"📄 Страница: {current_page}/{total_pages}\n"
+                text += f"📊 Прогресс: {progress_percent}%\n\n"
+                text += "(Не удалось отобразить изображение)"
+                
                 await message.answer(
-                    f"📖 **Current page: {current_page} of {total_pages}**\n"
-                    "(Could not render image)",
+                    text,
                     parse_mode="Markdown",
-                    reply_markup=self.keyboards.page_navigation()
+                    reply_markup=self.keyboards.reading_progress_menu(current_page, total_pages)
                 )
 
         except Exception as e:
@@ -866,7 +881,7 @@ class PDFSenderBot:
         )
 
     async def stats_command(self, message: types.Message):
-        """Handle /stats command to show storage and reading statistics"""
+        """Handle /stats command to show enhanced reading statistics with gamification"""
         if message.from_user is None:
             return
 
@@ -886,81 +901,93 @@ class PDFSenderBot:
             return
 
         try:
-            # Get storage usage
-            storage_stats = CleanupManager.get_storage_usage()
-
-            # Get user reading stats
-            user_data = self.db.get_user_data(user_id)
+            # Get user stats with gamification
+            user_stats = self.db.get_user_stats(user_id)
             pdf_path = self.db.get_pdf_path(user_id)
             
             # Get user settings
             settings = self.user_settings.get_user_settings(user_id)
 
-            stats_text = "📊 **Статистика бота** 📊\n\n"
+            stats_text = "📊 **Ваша статистика** 📊\n\n"
 
-            # Storage information
-            stats_text += "💾 **Использование хранилища:**\n"
-            stats_text += f"📸 Сгенерированные изображения: {CleanupManager.format_file_size(storage_stats['output_dir_size'])} ({storage_stats['output_dir_files']} файлов)\n"
-            stats_text += f"📚 Загруженные PDF: {CleanupManager.format_file_size(storage_stats['upload_dir_size'])} ({storage_stats['upload_dir_files']} файлов)\n"
-            stats_text += f"💿 Общий размер: {CleanupManager.format_file_size(storage_stats['total_size'])}\n\n"
+            # Gamification stats
+            stats_text += "🎮 **Игровая статистика:**\n"
+            stats_text += f"🎯 Очки: {user_stats['total_points']}\n"
+            stats_text += f"⭐ Уровень: {user_stats['level']} (Опыт: {user_stats['experience']}/100)\n"
+            stats_text += f"📚 Прочитано страниц: {user_stats['pages_read']}\n"
+            stats_text += f"📖 Завершено книг: {user_stats['books_completed']}\n"
+            stats_text += f"🔥 Текущая серия: {user_stats['current_streak']} дней\n"
+            stats_text += f"🏆 Лучшая серия: {user_stats['longest_streak']} дней\n"
+            stats_text += f"🏅 Достижений: {len(user_stats['achievements'])}\n\n"
 
-            # User reading stats
+            # Current book progress
             if pdf_path and os.path.exists(pdf_path):
                 current_page = self.db.get_current_page(user_id)
                 total_pages = self.db.get_total_pages(user_id)
                 progress = (current_page / total_pages) * 100 if total_pages > 0 else 0
 
-                stats_text += "📖 **Ваша статистика чтения:**\n"
-                stats_text += f"📚 Текущая книга: {os.path.basename(pdf_path)}\n"
+                stats_text += "📖 **Текущая книга:**\n"
+                stats_text += f"📚 Название: {os.path.basename(pdf_path)}\n"
                 stats_text += f"📄 Прогресс: {current_page}/{total_pages} страниц ({progress:.1f}%)\n"
 
-                # Calculate reading pace
-                last_sent = self.db.get_last_sent(user_id)
-                if last_sent:
-                    join_date = user_data.get("joined_at")
-                    if join_date:
-                        try:
-                            join_dt = datetime.fromisoformat(
-                                join_date.replace("Z", "+00:00")
-                            )
-                            days_reading = (datetime.now() - join_dt).days + 1
-                            pages_per_day = (
-                                current_page / days_reading if days_reading > 0 else 0
-                            )
-                            stats_text += f"⚡ Темп чтения: {pages_per_day:.1f} стр/день\n"
-
-                            if progress > 0:
-                                estimated_days_left = (
-                                    (total_pages - current_page) / pages_per_day
-                                    if pages_per_day > 0
-                                    else 0
-                                )
-                                if estimated_days_left > 0:
-                                    stats_text += f"⏰ Ожидаемое завершение: {estimated_days_left:.0f} дней\n"
-                        except (ValueError, TypeError):
-                            pass
-
-                stats_text += "\n"
+                # Progress bar
+                progress_bar_length = 10
+                filled_length = int(progress_bar_length * progress / 100)
+                progress_bar = "█" * filled_length + "░" * (progress_bar_length - filled_length)
+                stats_text += f"📊 [{progress_bar}] {progress:.1f}%\n\n"
             else:
                 stats_text += "📖 **Книга еще не загружена**\n\n"
 
+            # Reading pace and predictions
+            if user_stats['pages_read'] > 0:
+                user_data = self.db.get_user_data(user_id)
+                join_date = user_data.get("joined_at")
+                if join_date:
+                    try:
+                        join_dt = datetime.fromisoformat(
+                            join_date.replace("Z", "+00:00")
+                        )
+                        days_active = (datetime.now() - join_dt).days + 1
+                        pages_per_day = user_stats['pages_read'] / days_active if days_active > 0 else 0
+                        
+                        stats_text += "📈 **Аналитика чтения:**\n"
+                        stats_text += f"⚡ Темп чтения: {pages_per_day:.1f} стр/день\n"
+                        stats_text += f"📅 Дней активности: {days_active}\n"
+                        
+                        if pdf_path and os.path.exists(pdf_path):
+                            current_page = self.db.get_current_page(user_id)
+                            total_pages = self.db.get_total_pages(user_id)
+                            if pages_per_day > 0 and total_pages > current_page:
+                                estimated_days_left = (total_pages - current_page) / pages_per_day
+                                stats_text += f"⏰ До завершения: {estimated_days_left:.0f} дней\n"
+                        
+                        stats_text += "\n"
+                    except (ValueError, TypeError):
+                        pass
+
+            # Recent achievements
+            if user_stats['achievements']:
+                all_achievements = self.db.get_available_achievements()
+                recent_achievements = user_stats['achievements'][-3:]  # Last 3 achievements
+                
+                stats_text += "🏆 **Последние достижения:**\n"
+                for achievement_id in recent_achievements:
+                    if achievement_id in all_achievements:
+                        ach = all_achievements[achievement_id]
+                        stats_text += f"• {ach['icon']} {ach['name']}\n"
+                stats_text += "\n"
+
             # User settings info
-            stats_text += "⚙️ **Ваши настройки:**\n"
+            stats_text += "⚙️ **Настройки:**\n"
             stats_text += f"📄 Страниц за раз: {settings['pages_per_send']}\n"
-            stats_text += f"⏰ Интервал отправки: {settings['interval_hours']} ч\n"
-            stats_text += f"🖼️ Качество изображений: {settings['image_quality']}\n"
-            stats_text += f"🔄 Автоотправка: {'✅ Включена' if settings['auto_send_enabled'] else '❌ Отключена'}\n"
-            stats_text += f"🔔 Уведомления: {'✅ Включены' if settings['notifications_enabled'] else '❌ Отключены'}\n\n"
-            
-            # System configuration info
-            stats_text += "🔧 **Системные настройки:**\n"
-            stats_text += f"📁 Макс. размер файла: {Config.MAX_FILE_SIZE_MB}MB\n"
-            stats_text += f"🗂️ Хранение изображений: {Config.IMAGE_RETENTION_DAYS} дней\n"
+            stats_text += f"⏰ Интервал: {settings['interval_hours']} ч\n"
+            stats_text += f"🔄 Автоотправка: {'✅' if settings['auto_send_enabled'] else '❌'}\n"
+            stats_text += f"🔔 Уведомления: {'✅' if settings['notifications_enabled'] else '❌'}\n"
 
             await message.reply(
                 stats_text, 
                 parse_mode="Markdown",
-                reply_markup=self.keyboards.statistics_menu()
+                reply_markup=self.keyboards.stats_menu()
             )
 
         except Exception as e:

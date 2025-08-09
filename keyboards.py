@@ -20,12 +20,133 @@ class BotKeyboards:
             InlineKeyboardButton(text="📊 Statistics", callback_data="stats")
         )
         builder.row(
+            InlineKeyboardButton(text="🏆 Leaderboard", callback_data="leaderboard"),
+            InlineKeyboardButton(text="🎯 Achievements", callback_data="achievements")
+        )
+        builder.row(
             InlineKeyboardButton(text="⚙️ Settings", callback_data="settings_menu"),
             InlineKeyboardButton(text="📚 Manage books", callback_data="books_menu")
         )
         builder.row(
             InlineKeyboardButton(text="ℹ️ Help", callback_data="help"),
             InlineKeyboardButton(text="🔧 Admin panel", callback_data="admin_menu")
+        )
+        
+        return builder.as_markup()
+    
+    @staticmethod
+    def reading_progress_menu(current_page: int, total_pages: int) -> InlineKeyboardMarkup:
+        """Reading progress menu with 'I Read' button"""
+        builder = InlineKeyboardBuilder()
+        
+        # Progress bar
+        progress = (current_page / total_pages) * 100 if total_pages > 0 else 0
+        progress_bar = "█" * int(progress / 10) + "░" * (10 - int(progress / 10))
+        
+        builder.row(
+            InlineKeyboardButton(
+                text=f"✅ I Read This Page (+5 pts)", 
+                callback_data="mark_page_read"
+            )
+        )
+        builder.row(
+            InlineKeyboardButton(text="📄 Next Page", callback_data="next_pages"),
+            InlineKeyboardButton(text="📊 My Stats", callback_data="my_stats")
+        )
+        builder.row(
+            InlineKeyboardButton(text="🔙 Back to Menu", callback_data="main_menu")
+        )
+        
+        return builder.as_markup()
+    
+    @staticmethod
+    def leaderboard_menu() -> InlineKeyboardMarkup:
+        """Leaderboard menu"""
+        builder = InlineKeyboardBuilder()
+        
+        builder.row(
+            InlineKeyboardButton(text="🏆 Top Points", callback_data="leaderboard_points"),
+            InlineKeyboardButton(text="📚 Most Pages", callback_data="leaderboard_pages")
+        )
+        builder.row(
+            InlineKeyboardButton(text="🔥 Longest Streak", callback_data="leaderboard_streak"),
+            InlineKeyboardButton(text="📖 Books Completed", callback_data="leaderboard_books")
+        )
+        builder.row(
+            InlineKeyboardButton(text="🔄 Refresh", callback_data="leaderboard")
+        )
+        builder.row(
+            InlineKeyboardButton(text="🔙 Back to Menu", callback_data="main_menu")
+        )
+        
+        return builder.as_markup()
+    
+    @staticmethod
+    def achievements_menu() -> InlineKeyboardMarkup:
+        """Achievements menu"""
+        builder = InlineKeyboardBuilder()
+        
+        builder.row(
+            InlineKeyboardButton(text="🎯 My Achievements", callback_data="my_achievements"),
+            InlineKeyboardButton(text="📋 All Achievements", callback_data="all_achievements")
+        )
+        builder.row(
+            InlineKeyboardButton(text="🏅 Recent Unlocks", callback_data="recent_achievements")
+        )
+        builder.row(
+            InlineKeyboardButton(text="🔙 Back to Menu", callback_data="main_menu")
+        )
+        
+        return builder.as_markup()
+    
+    @staticmethod
+    def stats_menu() -> InlineKeyboardMarkup:
+        """Enhanced statistics menu"""
+        builder = InlineKeyboardBuilder()
+        
+        builder.row(
+            InlineKeyboardButton(text="📊 Reading Stats", callback_data="reading_stats"),
+            InlineKeyboardButton(text="🎮 Game Stats", callback_data="game_stats")
+        )
+        builder.row(
+            InlineKeyboardButton(text="📈 Progress Chart", callback_data="progress_chart"),
+            InlineKeyboardButton(text="🏆 Achievements", callback_data="achievements")
+        )
+        builder.row(
+            InlineKeyboardButton(text="🔙 Back to Menu", callback_data="main_menu")
+        )
+        
+        return builder.as_markup()
+    
+    @staticmethod
+    def level_up_menu(new_level: int) -> InlineKeyboardMarkup:
+        """Level up celebration menu"""
+        builder = InlineKeyboardBuilder()
+        
+        builder.row(
+            InlineKeyboardButton(text="🎉 Awesome!", callback_data="main_menu")
+        )
+        builder.row(
+            InlineKeyboardButton(text="📊 View Stats", callback_data="my_stats"),
+            InlineKeyboardButton(text="🏆 Leaderboard", callback_data="leaderboard")
+        )
+        
+        return builder.as_markup()
+    
+    @staticmethod
+    def achievement_unlocked_menu(achievement_name: str) -> InlineKeyboardMarkup:
+        """Achievement unlocked menu"""
+        builder = InlineKeyboardBuilder()
+        
+        builder.row(
+            InlineKeyboardButton(text="🎯 View All Achievements", callback_data="my_achievements")
+        )
+        builder.row(
+            InlineKeyboardButton(text="📊 My Stats", callback_data="my_stats"),
+            InlineKeyboardButton(text="🏆 Leaderboard", callback_data="leaderboard")
+        )
+        builder.row(
+            InlineKeyboardButton(text="🔙 Continue Reading", callback_data="main_menu")
         )
         
         return builder.as_markup()

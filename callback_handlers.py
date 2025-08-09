@@ -81,11 +81,16 @@ class CallbackHandler:
                 await self._show_stats(callback)
             elif data == "help":
                 await self._show_help(callback)
+            # Gamification callbacks
+            elif data == "leaderboard":
+                await self._show_leaderboard(callback)
+            elif data == "achievements":
+                await self._show_achievements(callback)
+            elif data == "i_read_page":
+                await self._mark_page_read(callback)
             # Administrative callbacks
             elif data == "stats":
                 await self._show_stats(callback)
-            elif data == "help":
-                await self._show_help(callback)
             elif data == "admin_menu":
                 await self._show_admin_menu(callback)
             elif data == "admin_users":
@@ -486,3 +491,140 @@ class CallbackHandler:
             parse_mode="Markdown"
         )
         await callback.answer()
+    
+    async def _show_leaderboard(self, callback: types.CallbackQuery):
+        """Show leaderboard"""
+        try:
+            leaderboard = self.bot.db_manager.get_leaderboard(limit=10)
+            
+            if not leaderboard:
+                text = "📊 **Таблица лидеров**\n\n🤷‍♂️ Пока никто не читал страницы!"
+            else:
+                text = "📊 **Таблица лидеров**\n\n"
+                for i, user in enumerate(leaderboard, 1):
+                    medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+                    username = user.get('username', 'Неизвестный')
+                    points = user.get('total_points', 0)
+                    level = user.get('level', 1)
+                    text += f"{medal} **{username}** - {points} очков (Уровень {level})\n"
+            
+            await callback.message.edit_text(
+                text,
+                reply_markup=self.keyboards.main_menu(),
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            logger.error(f"Error showing leaderboard: {e}")
+            await callback.message.edit_text(
+                "❌ Ошибка при загрузке таблицы лидеров",
+                reply_markup=self.keyboards.main_menu()
+            )
+        await callback.answer()
+    
+    async def _show_achievements(self, callback: types.CallbackQuery):
+        """Show user achievements"""
+        try:
+            user_id = callback.from_user.id
+            user_data = self.bot.db_manager.get_user(user_id)
+            
+            if not user_data:
+                await callback.message.edit_text(
+                    "❌ Пользователь не найден",
+                    reply_markup=self.keyboards.main_menu()
+                )
+                return
+            
+            user_achievements = user_data.get('achievements', [])
+            all_achievements = self.bot.db_manager.get_available_achievements()
+            
+            text = "🏆 **Ваши достижения**\n\n"
+            
+            unlocked_count = 0
+            for achievement_id, achievement in all_achievements.items():
+                if achievement_id in user_achievements:
+                    text += f"✅ {achievement['icon']} **{achievement['name']}** - {achievement['description']} (+{achievement['points']} очков)\n"
+                    unlocked_count += 1
+                else:
+                    text += f"🔒 {achievement['icon']} **{achievement['name']}** - {achievement['description']} (+{achievement['points']} очков)\n"
+            
+            text += f"\n📈 **Прогресс:** {unlocked_count}/{len(all_achievements)} достижений разблокировано"
+            
+            await callback.message.edit_text(
+                text,
+                reply_markup=self.keyboards.main_menu(),
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            logger.error(f"Error showing achievements: {e}")
+            await callback.message.edit_text(
+                "❌ Ошибка при загрузке достижений",
+                reply_markup=self.keyboards.main_menu()
+            )
+        await callback.answer()
+    
+    async def _mark_page_read(self, callback: types.CallbackQuery):
+        """Mark current page as read and award points"""
+        try:
+            user_id = callback.from_user.id
+            username = callback.from_user.username or "unknown"
+            
+            # Get current user data
+            user_data = self.bot.db_manager.get_user(user_id)
+            if not user_data:
+                await callback.answer("❌ Пользователь не найден", show_alert=True)
+                return
+            
+            current_page = user_data.get('current_page', 1)
+            total_pages = user_data.get('total_pages', 0)
+            
+            if current_page >= total_pages:
+                await callback.answer("📚 Вы уже прочитали всю книгу!", show_alert=True)
+                return
+            
+            # Mark page as read and get results
+            result = self.bot.db_manager.mark_page_read(user_id)
+            
+            # Increment current page
+            self.bot.db_manager.increment_page(user_id)
+            
+            # Prepare response message
+            points_earned = result.get('points_earned', 0)
+            new_achievements = result.get('new_achievements', [])
+            level_up = result.get('level_up', False)
+            
+            response_text = f"✅ Страница {current_page} отмечена как прочитанная!\n"
+            response_text += f"🎯 +{points_earned} очков\n"
+            
+            if level_up:
+                new_level = result.get('new_level', 1)
+                response_text += f"🎉 Поздравляем! Вы достигли {new_level} уровня!\n"
+            
+            if new_achievements:
+                response_text += "\n🏆 Новые достижения:\n"
+                all_achievements = self.bot.db_manager.get_available_achievements()
+                for achievement_id in new_achievements:
+                    if achievement_id in all_achievements:
+                        ach = all_achievements[achievement_id]
+                        response_text += f"• {ach['icon']} {ach['name']}\n"
+            
+            # Update the message with reading progress
+            updated_user_data = self.bot.db_manager.get_user(user_id)
+            new_current_page = updated_user_data.get('current_page', 1)
+            progress_percent = int((new_current_page / total_pages) * 100) if total_pages > 0 else 0
+            
+            progress_text = f"📖 **Прогресс чтения**\n\n"
+            progress_text += f"📄 Страница: {new_current_page}/{total_pages}\n"
+            progress_text += f"📊 Прогресс: {progress_percent}%\n\n"
+            progress_text += response_text
+            
+            await callback.message.edit_text(
+                progress_text,
+                reply_markup=self.keyboards.reading_progress_menu(new_current_page, total_pages),
+                parse_mode="Markdown"
+            )
+            
+            await callback.answer(f"🎯 +{points_earned} очков!", show_alert=True)
+            
+        except Exception as e:
+            logger.error(f"Error marking page as read: {e}")
+            await callback.answer("❌ Ошибка при отметке страницы", show_alert=True)

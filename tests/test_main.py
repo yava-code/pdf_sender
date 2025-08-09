@@ -135,7 +135,6 @@ class TestPDFSenderBot:
         call_args = mock_message.answer.call_args[0][0]
         assert "Reading Progress" in call_args
         assert "Current page:** 10" in call_args
-        assert "Total pages:** 100" in call_args
         assert "Progress:** 10.0%" in call_args
 
     @pytest.mark.asyncio
@@ -179,6 +178,7 @@ class TestPDFSenderBot:
         mock_dependencies["db"].get_user.return_value = {"id": 12345}
         mock_dependencies["db"].get_pdf_path.return_value = "test.pdf"
         mock_dependencies["db"].get_current_page.return_value = 15
+        mock_dependencies["db"].get_total_pages.return_value = 100
 
         # Configure the existing PDFReader mock
         mock_dependencies["pdf_reader"].extract_pages_as_images.return_value = ["page_15.png"]
@@ -195,7 +195,8 @@ class TestPDFSenderBot:
         mock_dependencies["bot"].send_photo.assert_called_once()
         call_args = mock_dependencies["bot"].send_photo.call_args
         assert call_args[1]["chat_id"] == 12345
-        assert "Current page: 15" in call_args[1]["caption"]
+        assert "Прогресс чтения" in call_args[1]["caption"]
+        assert "Страница: 15/100" in call_args[1]["caption"]
 
     @pytest.mark.asyncio
     async def test_goto_page_handler_valid(
