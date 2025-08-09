@@ -86,7 +86,7 @@ class CallbackHandler:
                 await self._show_leaderboard(callback)
             elif data == "achievements":
                 await self._show_achievements(callback)
-            elif data == "i_read_page":
+            elif data == "mark_page_read":
                 await self._mark_page_read(callback)
             # Administrative callbacks
             elif data == "stats":

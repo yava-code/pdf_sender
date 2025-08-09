@@ -72,6 +72,8 @@ class PDFSenderBot:
         self.dp.message.register(self.book_command, Command("book"))
         self.dp.message.register(self.upload_command, Command("upload"))
         self.dp.message.register(self.stats_command, Command("stats"))
+        self.dp.message.register(self.leaderboard_command, Command("leaderboard"))
+        self.dp.message.register(self.achievements_command, Command("achievements"))
         self.dp.message.register(self.admin_command, Command("admin"))
         self.dp.message.register(self.logs_command, Command("logs"))
         self.dp.message.register(self.users_command, Command("users"))
@@ -320,7 +322,7 @@ class PDFSenderBot:
                 f"📖 **Sent pages {current_page}-{end_page}**\n"
                 f"📍 Current page is now: {new_page}",
                 parse_mode="Markdown",
-                reply_markup=self.keyboards.page_navigation()
+                reply_markup=self.keyboards.reading_progress_menu(new_page, total_pages)
             )
 
         except Exception as e:
@@ -880,6 +882,81 @@ class PDFSenderBot:
             reply_markup=self.keyboards.book_management()
         )
 
+    async def leaderboard_command(self, message: types.Message):
+        """Handle /leaderboard command"""
+        if message.from_user is None:
+            return
+
+        user_id = message.from_user.id
+        username = message.from_user.username or "Unknown"
+
+        BotLogger.log_user_action(user_id, username, "leaderboard_command")
+
+        try:
+            leaderboard = self.db.get_leaderboard(limit=10)
+
+            if not leaderboard:
+                text = "📊 **Таблица лидеров**\n\n🤷‍♂️ Пока никто не читал страницы!"
+            else:
+                text = "📊 **Таблица лидеров**\n\n"
+                for i, user in enumerate(leaderboard, 1):
+                    medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+                    username = user.get('username', 'Неизвестный')
+                    points = user.get('total_points', 0)
+                    level = user.get('level', 1)
+                    text += f"{medal} **{username}** - {points} очков (Уровень {level})\n"
+
+            await message.reply(
+                text,
+                reply_markup=self.keyboards.leaderboard_menu(),
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            BotLogger.log_error(e, f"Error showing leaderboard: {e}")
+            await message.reply(
+                "❌ Ошибка при загрузке таблицы лидеров",
+                reply_markup=self.keyboards.main_menu()
+            )
+
+    async def achievements_command(self, message: types.Message):
+        """Handle /achievements command"""
+        if message.from_user is None:
+            return
+
+        user_id = message.from_user.id
+        username = message.from_user.username or "Unknown"
+
+        BotLogger.log_user_action(user_id, username, "achievements_command")
+
+        try:
+            user_stats = self.db.get_user_stats(user_id)
+            user_achievements = [ach['id'] for ach in user_stats['achievements']]
+            all_achievements = self.db.get_available_achievements()
+
+            text = "🏆 **Ваши достижения**\n\n"
+
+            unlocked_count = 0
+            for achievement in all_achievements:
+                if achievement['id'] in user_achievements:
+                    text += f"✅ {achievement['icon']} **{achievement['name']}** - {achievement['description']} (+{achievement['points']} очков)\n"
+                    unlocked_count += 1
+                else:
+                    text += f"🔒 {achievement['icon']} **{achievement['name']}** - {achievement['description']} (+{achievement['points']} очков)\n"
+
+            text += f"\n📈 **Прогресс:** {unlocked_count}/{len(all_achievements)} достижений разблокировано"
+
+            await message.reply(
+                text,
+                reply_markup=self.keyboards.achievements_menu(),
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            BotLogger.log_error(e, f"Error showing achievements: {e}")
+            await message.reply(
+                "❌ Ошибка при загрузке достижений",
+                reply_markup=self.keyboards.main_menu()
+            )
+
     async def stats_command(self, message: types.Message):
         """Handle /stats command to show enhanced reading statistics with gamification"""
         if message.from_user is None:
@@ -912,13 +989,21 @@ class PDFSenderBot:
 
             # Gamification stats
             stats_text += "🎮 **Игровая статистика:**\n"
-            stats_text += f"🎯 Очки: {user_stats['total_points']}\n"
-            stats_text += f"⭐ Уровень: {user_stats['level']} (Опыт: {user_stats['experience']}/100)\n"
-            stats_text += f"📚 Прочитано страниц: {user_stats['pages_read']}\n"
-            stats_text += f"📖 Завершено книг: {user_stats['books_completed']}\n"
-            stats_text += f"🔥 Текущая серия: {user_stats['current_streak']} дней\n"
-            stats_text += f"🏆 Лучшая серия: {user_stats['longest_streak']} дней\n"
-            stats_text += f"🏅 Достижений: {len(user_stats['achievements'])}\n\n"
+            stats_text += f"⭐ **Уровень:** {user_stats['level']}\n"
+
+            # Experience progress bar
+            exp = user_stats['experience']
+            next_level_exp = user_stats['level'] * 100
+            exp_percent = (exp % 100) / 100 * 100
+            exp_bar = "█" * int(exp_percent / 10) + "░" * (10 - int(exp_percent / 10))
+            stats_text += f" XP: {exp % 100}/{next_level_exp} [{exp_bar}]\n"
+
+            stats_text += f"🎯 **Очки:** {user_stats['total_points']}\n"
+            stats_text += f"📚 **Прочитано страниц:** {user_stats['pages_read']}\n"
+            stats_text += f"📖 **Завершено книг:** {user_stats['books_completed']}\n"
+            stats_text += f"🔥 **Текущая серия:** {user_stats['current_streak']} дней\n"
+            stats_text += f"🏆 **Лучшая серия:** {user_stats['longest_streak']} дней\n"
+            stats_text += f"🏅 **Достижений:** {len(user_stats['achievements'])}/{len(self.db.get_available_achievements())}\n\n"
 
             # Current book progress
             if pdf_path and os.path.exists(pdf_path):
@@ -927,14 +1012,14 @@ class PDFSenderBot:
                 progress = (current_page / total_pages) * 100 if total_pages > 0 else 0
 
                 stats_text += "📖 **Текущая книга:**\n"
-                stats_text += f"📚 Название: {os.path.basename(pdf_path)}\n"
-                stats_text += f"📄 Прогресс: {current_page}/{total_pages} страниц ({progress:.1f}%)\n"
+                stats_text += f"📚 {os.path.basename(pdf_path)}\n"
+                stats_text += f"📄 {current_page}/{total_pages} ({progress:.1f}%)\n"
 
                 # Progress bar
                 progress_bar_length = 10
                 filled_length = int(progress_bar_length * progress / 100)
                 progress_bar = "█" * filled_length + "░" * (progress_bar_length - filled_length)
-                stats_text += f"📊 [{progress_bar}] {progress:.1f}%\n\n"
+                stats_text += f"📊 [{progress_bar}]\n\n"
             else:
                 stats_text += "📖 **Книга еще не загружена**\n\n"
 
@@ -951,15 +1036,14 @@ class PDFSenderBot:
                         pages_per_day = user_stats['pages_read'] / days_active if days_active > 0 else 0
                         
                         stats_text += "📈 **Аналитика чтения:**\n"
-                        stats_text += f"⚡ Темп чтения: {pages_per_day:.1f} стр/день\n"
-                        stats_text += f"📅 Дней активности: {days_active}\n"
+                        stats_text += f"⚡ **Темп:** {pages_per_day:.1f} стр/день\n"
                         
                         if pdf_path and os.path.exists(pdf_path):
                             current_page = self.db.get_current_page(user_id)
                             total_pages = self.db.get_total_pages(user_id)
                             if pages_per_day > 0 and total_pages > current_page:
                                 estimated_days_left = (total_pages - current_page) / pages_per_day
-                                stats_text += f"⏰ До завершения: {estimated_days_left:.0f} дней\n"
+                                stats_text += f"🏁 **До финиша:** ~{estimated_days_left:.0f} дней\n"
                         
                         stats_text += "\n"
                     except (ValueError, TypeError):
@@ -967,22 +1051,10 @@ class PDFSenderBot:
 
             # Recent achievements
             if user_stats['achievements']:
-                all_achievements = self.db.get_available_achievements()
-                recent_achievements = user_stats['achievements'][-3:]  # Last 3 achievements
-                
                 stats_text += "🏆 **Последние достижения:**\n"
-                for achievement_id in recent_achievements:
-                    if achievement_id in all_achievements:
-                        ach = all_achievements[achievement_id]
-                        stats_text += f"• {ach['icon']} {ach['name']}\n"
+                for achievement in user_stats['achievements'][-3:]:
+                    stats_text += f"• {achievement['icon']} **{achievement['name']}**: {achievement['description']} (+{achievement['points']} очков)\n"
                 stats_text += "\n"
-
-            # User settings info
-            stats_text += "⚙️ **Настройки:**\n"
-            stats_text += f"📄 Страниц за раз: {settings['pages_per_send']}\n"
-            stats_text += f"⏰ Интервал: {settings['interval_hours']} ч\n"
-            stats_text += f"🔄 Автоотправка: {'✅' if settings['auto_send_enabled'] else '❌'}\n"
-            stats_text += f"🔔 Уведомления: {'✅' if settings['notifications_enabled'] else '❌'}\n"
 
             await message.reply(
                 stats_text, 
