@@ -4,7 +4,6 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from config import Config
 
 
 class BotLogger:

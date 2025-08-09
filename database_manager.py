@@ -3,12 +3,12 @@ import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-from config import config
+from config import get_config
 
 
 class DatabaseManager:
     def __init__(self, db_path: Optional[str] = None):
-        self.db_path = db_path or config.database_path
+        self.db_path = db_path or get_config().database_path
         self._ensure_database_exists()
 
     def _ensure_database_exists(self):
@@ -67,7 +67,7 @@ class DatabaseManager:
             "joined_at": None,
             "current_page": 1,
             "total_pages": 0,
-            "pdf_path": config.pdf_path,  # Default PDF path
+            "pdf_path": get_config().pdf_path,  # Default PDF path
             "last_sent": None,
             "total_points": 0,
             "pages_read": 0,
@@ -98,7 +98,7 @@ class DatabaseManager:
                 return
 
         # If user not found, add them with the specified page
-        self.add_user(user_id, None, pdf_path=config.pdf_path, current_page=page)
+        self.add_user(user_id, None, pdf_path=get_config().pdf_path, current_page=page)
 
     def increment_page(self, user_id: int, increment: int = 1) -> int:
         """Increment current page for a user and return new page number"""
@@ -124,7 +124,7 @@ class DatabaseManager:
                 return
 
         # If user not found, add them with the specified total pages
-        self.add_user(user_id, None, pdf_path=config.pdf_path, total_pages=total)
+        self.add_user(user_id, None, pdf_path=get_config().pdf_path, total_pages=total)
 
     def add_user(
         self,
@@ -159,7 +159,7 @@ class DatabaseManager:
                 "joined_at": datetime.now().isoformat(),
                 "current_page": current_page,
                 "total_pages": total_pages,
-                "pdf_path": pdf_path or config.pdf_path,
+                "pdf_path": pdf_path or get_config().pdf_path,
                 "last_sent": None,
                 "total_points": 0,
                 "pages_read": 0,
@@ -402,7 +402,7 @@ class DatabaseManager:
     def get_pdf_path(self, user_id: int) -> str:
         """Get PDF path for a user"""
         user_data = self.get_user_data(user_id)
-        return user_data.get("pdf_path", config.pdf_path)
+        return user_data.get("pdf_path", get_config().pdf_path)
 
     def update_last_sent(self, user_id: int):
         """Update last sent timestamp for a user"""

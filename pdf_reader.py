@@ -4,7 +4,7 @@ from typing import List, Optional
 
 import fitz as pymupdf
 
-from config import config
+from config import get_config
 from database_manager import DatabaseManager
 
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ class PDFReader:
         output_dir: Optional[str] = None,
         db: Optional[DatabaseManager] = None,
     ):
-        self.db = db or DatabaseManager(config.database_path)
+        self.db = db or DatabaseManager(get_config().database_path)
         self.user_id = user_id
 
         # If user_id is provided, get PDF path from database
@@ -27,15 +27,15 @@ class PDFReader:
             if not self.pdf_path or not os.path.exists(self.pdf_path):
                 logger.warning(f"No valid PDF path found for user {user_id}")
         else:
-            self.pdf_path = pdf_path or config.pdf_path
+            self.pdf_path = pdf_path or get_config().pdf_path
 
         # Create user-specific output directory if user_id is provided
         if user_id is not None:
             self.output_dir = output_dir or os.path.join(
-                config.output_dir, str(user_id)
+                get_config().output_dir, str(user_id)
             )
         else:
-            self.output_dir = output_dir or config.output_dir
+            self.output_dir = output_dir or get_config().output_dir
 
         self._ensure_output_dir()
 
@@ -84,7 +84,7 @@ class PDFReader:
             output_path = os.path.join(self.output_dir, f"page_{timestamp}.jpg")
 
             # Save as JPEG with quality setting
-            pix.save(output_path, jpg_quality=config.image_quality)
+            pix.save(output_path, jpg_quality=get_config().image_quality)
 
             doc.close()
             logger.debug(f"Extracted page {page_number} to {output_path}")
