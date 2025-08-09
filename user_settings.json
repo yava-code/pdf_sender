@@ -20,5 +20,38 @@
     "notifications_enabled": true,
     "created_at": "2025-08-05T19:36:58.671233",
     "last_updated": "2025-08-05T19:36:58.671233"
+  },
+  "12345": {
+    "pages_per_send": 3,
+    "schedule_time": "09:00",
+    "interval_hours": 6,
+    "auto_send_enabled": true,
+    "timezone": "UTC",
+    "image_quality": 85,
+    "notifications_enabled": true,
+    "created_at": "2025-08-09T12:19:35.795290",
+    "last_updated": "2025-08-09T12:19:35.795298"
+  },
+  "123": {
+    "pages_per_send": 3,
+    "schedule_time": "09:00",
+    "interval_hours": 6,
+    "auto_send_enabled": true,
+    "timezone": "UTC",
+    "image_quality": 85,
+    "notifications_enabled": true,
+    "created_at": "2025-08-09T12:19:36.086077",
+    "last_updated": "2025-08-09T12:19:36.086084"
+  },
+  "456": {
+    "pages_per_send": 3,
+    "schedule_time": "09:00",
+    "interval_hours": 6,
+    "auto_send_enabled": true,
+    "timezone": "UTC",
+    "image_quality": 85,
+    "notifications_enabled": true,
+    "created_at": "2025-08-09T12:19:36.086899",
+    "last_updated": "2025-08-09T12:19:36.086904"
   }
 }
