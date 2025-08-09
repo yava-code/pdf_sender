@@ -12,7 +12,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import FSInputFile
 
 from cleanup_manager import CleanupManager
-from config import Config
+from config import get_config, Config
 from database_manager import DatabaseManager
 from file_validator import FileValidator
 from pdf_reader import PDFReader
@@ -35,11 +35,11 @@ class UploadPDF(StatesGroup):
 
 class PDFSenderBot:
     def __init__(self):
-        Config.validate()
-        self.bot = Bot(token=Config.BOT_TOKEN)
+        config = get_config()
+        self.bot = Bot(token=config.bot_token)
         self.dp = Dispatcher(storage=MemoryStorage())
         self.db = DatabaseManager()
-        self.pdf_reader = PDFReader(output_dir=Config.OUTPUT_DIR, db=self.db)
+        self.pdf_reader = PDFReader(output_dir=config.output_dir, db=self.db)
         self.scheduler = PDFScheduler(self)
         
         # Initialize new components
@@ -49,7 +49,7 @@ class PDFSenderBot:
         self.message_handler = MessageHandler(self)
 
         # Create upload directory if it doesn't exist
-        os.makedirs(Config.UPLOAD_DIR, exist_ok=True)
+        os.makedirs(config.upload_dir, exist_ok=True)
 
         # Register handlers
         self._register_handlers()
@@ -686,7 +686,7 @@ class PDFSenderBot:
             "📤 **Загрузка PDF книги**\n\n"
             "Отправьте мне PDF файл, который вы хотите читать.\n\n"
             "📋 **Требования:**\n"
-            f"• Максимальный размер: {Config.MAX_FILE_SIZE_MB}MB\n"
+            f"• Максимальный размер: {get_config().max_file_size // (1024 * 1024)}MB\n"
             "• Только PDF формат\n"
             "• Файл должен содержать текст или изображения",
             parse_mode="Markdown"
@@ -721,10 +721,10 @@ class PDFSenderBot:
 
             # Check file size before downloading
             file_size = message.document.file_size
-            if file_size and file_size > Config.MAX_FILE_SIZE_MB * 1024 * 1024:
+            if file_size and file_size > get_config().max_file_size:
                 await message.reply(
                     f"❌ **Файл слишком большой!**\n\n"
-                    f"Максимальный размер: {Config.MAX_FILE_SIZE_MB}MB\n"
+                    f"Максимальный размер: {get_config().max_file_size // (1024 * 1024)}MB\n"
                     f"Размер вашего файла: {file_size / 1024 / 1024:.1f}MB",
                     parse_mode="Markdown",
                     reply_markup=self.keyboards.main_menu()
@@ -743,7 +743,7 @@ class PDFSenderBot:
             file_path = file_info.file_path
 
             # Create user directory if it doesn't exist
-            user_upload_dir = os.path.join(Config.UPLOAD_DIR, str(user_id))
+            user_upload_dir = os.path.join(get_config().upload_dir, str(user_id))
             os.makedirs(user_upload_dir, exist_ok=True)
 
             # Generate local file path with timestamp to avoid conflicts
@@ -1213,9 +1213,9 @@ class PDFSenderBot:
                 f"📚 PDF файлы: {CleanupManager.format_file_size(storage_stats['upload_dir_size'])} ({storage_stats['upload_dir_files']} файлов)\n"
                 f"💿 Общий размер: {CleanupManager.format_file_size(storage_stats['total_size'])}\n\n"
                 f"⚙️ **Конфигурация:**\n"
-                f"📄 Макс. размер файла: {Config.MAX_FILE_SIZE_MB}MB\n"
-                f"🗂️ Хранение изображений: {Config.IMAGE_RETENTION_DAYS} дней\n"
-                f"🖼️ Качество по умолчанию: {Config.IMAGE_QUALITY}%"
+                f"📄 Макс. размер файла: {get_config().max_file_size // (1024 * 1024)}MB\n"
+                f"🗂️ Хранение изображений: {get_config().cleanup_older_than_days} дней\n"
+                f"🖼️ Качество по умолчанию: {get_config().image_quality}%"
             )
 
             await message.answer(
@@ -1325,8 +1325,8 @@ class PDFSenderBot:
             # Create zip backup
             with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
                 # Backup database
-                if os.path.exists(Config.DATABASE_PATH):
-                    zipf.write(Config.DATABASE_PATH, "database.json")
+                if os.path.exists(get_config().database_path):
+                    zipf.write(get_config().database_path, "database.json")
                 
                 # Backup user settings
                 if os.path.exists("user_settings.json"):
@@ -1334,12 +1334,12 @@ class PDFSenderBot:
                 
                 # Backup config (without sensitive data)
                 zipf.writestr("config_backup.txt", 
-                    f"PAGES_PER_SEND={Config.PAGES_PER_SEND}\n"
-                    f"INTERVAL_HOURS={Config.INTERVAL_HOURS}\n"
-                    f"SCHEDULE_TIME={Config.SCHEDULE_TIME}\n"
-                    f"MAX_FILE_SIZE_MB={Config.MAX_FILE_SIZE_MB}\n"
-                    f"IMAGE_RETENTION_DAYS={Config.IMAGE_RETENTION_DAYS}\n"
-                    f"IMAGE_QUALITY={Config.IMAGE_QUALITY}\n"
+                    f"PAGES_PER_SEND={get_config().pages_per_send}\n"
+                    f"INTERVAL_HOURS={get_config().interval_hours}\n"
+                    f"SCHEDULE_TIME={get_config().schedule_time}\n"
+                    f"MAX_FILE_SIZE_MB={get_config().max_file_size // (1024 * 1024)}\n"
+                    f"IMAGE_RETENTION_DAYS={get_config().cleanup_older_than_days}\n"
+                    f"IMAGE_QUALITY={get_config().image_quality}\n"
                 )
             
             backup_size = os.path.getsize(backup_path) / 1024 / 1024  # MB
