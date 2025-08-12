@@ -3,7 +3,7 @@ import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from config import Config
+from config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ class PDFScheduler:
         """Setup the interval schedule for sending pages and cleanup"""
         try:
             # Get interval in hours from config
-            interval_hours = Config.INTERVAL_HOURS
+            interval_hours = get_config().interval_hours
 
             # Add job to scheduler to run every X hours
             self.scheduler.add_job(

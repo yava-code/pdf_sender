@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import List, Optional
 from pydantic import Field, validator
 from pydantic_settings import BaseSettings
+from functools import lru_cache
 
 class Config(BaseSettings):
     """Application configuration using Pydantic settings."""
@@ -81,6 +82,7 @@ class Config(BaseSettings):
         env_file_encoding = "utf-8"
         case_sensitive = False
 
+<<<<<<< HEAD
 # Global configuration instance
 config = Config()
 
@@ -186,3 +188,9 @@ class LegacyConfig:
 
 # Create legacy config instance for backward compatibility
 legacy_config = LegacyConfig()
+=======
+@lru_cache()
+def get_config() -> Config:
+    """Returns a cached instance of the Config class."""
+    return Config()
+>>>>>>> b55000166c88d8e62842cd6c782225c1545c00cc

@@ -90,6 +90,7 @@ class TestPDFSenderBot:
         message.from_user.id = 12345
         message.from_user.username = "test_user"
         message.answer = AsyncMock()
+        message.reply = AsyncMock()
         message.text = "/start"
         return message
 
@@ -170,6 +171,37 @@ class TestPDFSenderBot:
         call_args = mock_message.answer.call_args[0][0]
         assert "Sent pages 5-7" in call_args
         assert "Current page is now: 8" in call_args
+
+    @pytest.mark.asyncio
+    async def test_next_pages_handler_with_reading_progress_menu(self, pdf_bot, mock_message, mock_dependencies):
+        """Test /next command handler replies with reading_progress_menu"""
+        # Setup mock returns
+        mock_dependencies["db"].get_user.return_value = {"id": 12345}
+        mock_dependencies["db"].get_pdf_path.return_value = "test.pdf"
+        mock_dependencies["db"].get_current_page.return_value = 5
+        mock_dependencies["db"].get_total_pages.return_value = 100
+        mock_dependencies["db"].increment_page.return_value = 8
+
+        # Mock send_pages_to_user method
+        pdf_bot.send_pages_to_user = AsyncMock()
+
+        # Mock user settings
+        mock_dependencies["user_settings"].get_user_settings.return_value = {
+            "pages_per_send": 3
+        }
+
+        # Mock os.path.exists to return True for the PDF path
+        with patch("main.os.path.exists", return_value=True):
+            await pdf_bot.next_pages_handler(mock_message)
+
+        # Check that pages were sent
+        pdf_bot.send_pages_to_user.assert_called_once_with(12345, 5)
+
+        # Check that page was incremented
+        mock_dependencies["db"].increment_page.assert_called_once_with(12345, 3)
+
+        # Check that the reading_progress_menu is called
+        mock_dependencies["keyboards"].reading_progress_menu.assert_called_once_with(8, 100)
 
     @pytest.mark.asyncio
     async def test_current_page_handler(self, pdf_bot, mock_message, mock_dependencies):
@@ -393,3 +425,46 @@ class TestPDFSenderBot:
 
         # Should not increment page when no users
         mock_dependencies["db"].increment_page.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_leaderboard_command(self, pdf_bot, mock_message, mock_dependencies):
+        """Test /leaderboard command handler"""
+        # Setup mock returns
+        mock_dependencies["db"].get_leaderboard.return_value = [
+            {"username": "user1", "total_points": 100, "level": 2},
+            {"username": "user2", "total_points": 50, "level": 1},
+        ]
+
+        await pdf_bot.leaderboard_command(mock_message)
+
+        mock_message.reply.assert_called_once()
+        call_args = mock_message.reply.call_args[0][0]
+        assert "Таблица лидеров" in call_args
+        assert "user1" in call_args
+        assert "user2" in call_args
+        mock_dependencies["keyboards"].leaderboard_menu.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_achievements_command(self, pdf_bot, mock_message, mock_dependencies):
+        """Test /achievements command handler"""
+        # Setup mock returns
+        mock_dependencies["db"].get_user_stats.return_value = {
+            "achievements": [
+                {"id": "first_page", "name": "First Steps", "description": "Read your first page", "points": 10, "icon": "🎯"}
+            ]
+        }
+        mock_dependencies["db"].get_available_achievements.return_value = [
+            {"id": "first_page", "name": "First Steps", "description": "Read your first page", "points": 10, "icon": "🎯"},
+            {"id": "page_10", "name": "Getting Started", "description": "Read 10 pages", "points": 50, "icon": "📖"},
+        ]
+
+        await pdf_bot.achievements_command(mock_message)
+
+        mock_message.reply.assert_called_once()
+        call_args = mock_message.reply.call_args[0][0]
+        assert "Ваши достижения" in call_args
+        assert "First Steps" in call_args
+        assert "Getting Started" in call_args
+        assert "✅" in call_args
+        assert "🔒" in call_args
+        mock_dependencies["keyboards"].achievements_menu.assert_called_once()

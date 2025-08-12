@@ -4,7 +4,7 @@ from datetime import datetime, time
 from pathlib import Path
 from typing import Dict, Optional, Any
 
-from config import Config
+from config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -45,13 +45,14 @@ class UserSettings:
         user_key = str(user_id)
         if user_key not in self.settings:
             # Create default settings
+            config = get_config()
             self.settings[user_key] = {
-                "pages_per_send": Config.PAGES_PER_SEND,
-                "schedule_time": Config.SCHEDULE_TIME,
-                "interval_hours": Config.INTERVAL_HOURS,
+                "pages_per_send": config.pages_per_send,
+                "schedule_time": config.schedule_time,
+                "interval_hours": config.interval_hours,
                 "auto_send_enabled": True,
                 "timezone": "UTC",
-                "image_quality": Config.IMAGE_QUALITY,
+                "image_quality": config.image_quality,
                 "notifications_enabled": True,
                 "created_at": datetime.now().isoformat(),
                 "last_updated": datetime.now().isoformat()
@@ -110,13 +111,14 @@ class UserSettings:
     def get_all_users_with_auto_send(self) -> list:
         """Gets all users with auto-send enabled"""
         users = []
+        config = get_config()
         for user_id, settings in self.settings.items():
             if settings.get("auto_send_enabled", True):
                 users.append({
                     "user_id": int(user_id),
-                    "schedule_time": settings.get("schedule_time", Config.SCHEDULE_TIME),
-                    "pages_per_send": settings.get("pages_per_send", Config.PAGES_PER_SEND),
-                    "interval_hours": settings.get("interval_hours", Config.INTERVAL_HOURS)
+                    "schedule_time": settings.get("schedule_time", config.schedule_time),
+                    "pages_per_send": settings.get("pages_per_send", config.pages_per_send),
+                    "interval_hours": settings.get("interval_hours", config.interval_hours)
                 })
         return users
     

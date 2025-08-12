@@ -14,6 +14,12 @@ A Telegram bot that helps you read books by automatically sending PDF pages on a
 - 📊 **Progress Tracking**: Keep track of current page and reading progress
 - 🎯 **Page Navigation**: Jump to any specific page instantly
 - 👥 **Multi-User Support**: Supports multiple users with shared progress
+- 🎮 **Gamification**:
+  - **Points**: Earn points for reading pages and completing books.
+  - **Levels**: Level up as you read more.
+  - **Achievements**: Unlock achievements for reaching milestones.
+  - **Leaderboards**: Compete with other readers.
+  - **Reading Streaks**: Maintain a daily reading streak.
 - 🗄️ **JSON Database**: Simple file-based storage for configuration and progress
 - 🧪 **Comprehensive Testing**: Full test suite with high coverage
 - ⚙️ **Environment Configuration**: Easy setup with environment variables
@@ -81,6 +87,9 @@ A Telegram bot that helps you read books by automatically sending PDF pages on a
 | `/next` | Get next 3 pages manually | `/next` |
 | `/current` | Get the current page | `/current` |
 | `/goto <page>` | Jump to a specific page | `/goto 25` |
+| `/stats` | Show your reading statistics | `/stats` |
+| `/leaderboard` | Show the leaderboard | `/leaderboard` |
+| `/achievements`| Show your achievements | `/achievements` |
 
 ## 📁 Project Structure
 
@@ -152,20 +161,27 @@ mypy .
 
 ## 📊 Database Schema
 
-The bot uses a simple JSON file for data storage:
+The bot uses a simple JSON file for data storage. Here is an example of the user object:
 
 ```json
 {
-  "current_page": 1,
-  "total_pages": 0,
-  "last_sent": null,
-  "users": [
-    {
-      "id": 123456789,
-      "username": "user123",
-      "joined_at": null
-    }
-  ]
+    "id": 123456789,
+    "username": "user123",
+    "joined_at": "2023-10-27T10:00:00",
+    "current_page": 1,
+    "total_pages": 100,
+    "pdf_path": "path/to/book.pdf",
+    "last_sent": "2023-10-27T10:00:00",
+    "total_points": 150,
+    "pages_read": 30,
+    "books_completed": 0,
+    "current_streak": 5,
+    "longest_streak": 10,
+    "last_read_date": "2023-10-27",
+    "achievements": ["first_page", "page_10"],
+    "reading_sessions": [],
+    "level": 2,
+    "experience": 150
 }
 ```
 
