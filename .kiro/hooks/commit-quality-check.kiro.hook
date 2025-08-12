@@ -1,0 +1,20 @@
+{
+  "enabled": true,
+  "name": "Commit Quality Check",
+  "description": "Automatically runs pytest, checks for errors, and validates GitHub Actions workflow status whenever code is committed",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "*.py",
+      "tests/*.py",
+      "pytest.ini",
+      ".github/workflows/*.yml",
+      ".github/workflows/*.yaml"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A commit has been made to the codebase. Please run the following checks: 1) Execute pytest to run all tests and report any failures, 2) Check for any Python syntax errors or import issues, 3) Validate that GitHub Actions workflows are properly configured and will run successfully, 4) Report on code coverage if available, 5) Highlight any critical issues that need immediate attention before the commit can be considered safe."
+  }
+}
