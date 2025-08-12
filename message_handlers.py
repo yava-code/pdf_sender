@@ -102,7 +102,7 @@ class MessageHandler:
             
             # Get data for display
             user_data = self.bot.db.get_user_data(user_id)
-            current_page = user_data.get("current_page", 1)
+            current_page = user_data.get("current_page", 1) if user_data else page_number
             
             await message.reply(
                 f"✅ **Navigated to page {page_number}**\n\n"

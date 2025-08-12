@@ -12,7 +12,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import FSInputFile
 
 from cleanup_manager import CleanupManager
-from config import Config
+from config import config, legacy_config
 from database_manager import DatabaseManager
 from file_validator import FileValidator
 from pdf_reader import PDFReader
@@ -35,11 +35,10 @@ class UploadPDF(StatesGroup):
 
 class PDFSenderBot:
     def __init__(self):
-        Config.validate()
-        self.bot = Bot(token=Config.BOT_TOKEN)
+        self.bot = Bot(token=config.bot_token)
         self.dp = Dispatcher(storage=MemoryStorage())
         self.db = DatabaseManager()
-        self.pdf_reader = PDFReader(output_dir=Config.OUTPUT_DIR, db=self.db)
+        self.pdf_reader = PDFReader(output_dir=config.output_dir, db=self.db)
         self.scheduler = PDFScheduler(self)
         
         # Initialize new components
@@ -49,7 +48,7 @@ class PDFSenderBot:
         self.message_handler = MessageHandler(self)
 
         # Create upload directory if it doesn't exist
-        os.makedirs(Config.UPLOAD_DIR, exist_ok=True)
+        os.makedirs(legacy_config.UPLOAD_DIR, exist_ok=True)
 
         # Register handlers
         self._register_handlers()
@@ -364,7 +363,7 @@ class PDFSenderBot:
             
             # Create PDFReader instance
             pdf_reader = PDFReader(
-                user_id=user_id, output_dir=Config.OUTPUT_DIR, db=self.db
+                user_id=user_id, output_dir=legacy_config.OUTPUT_DIR, db=self.db
             )
             image_paths = pdf_reader.extract_pages_as_images(
                 current_page, 1
@@ -418,7 +417,7 @@ class PDFSenderBot:
     async def _send_single_page(self, user_id: int, page_number: int):
         """Send a single page to user"""
         pdf_reader = PDFReader(
-            user_id=user_id, output_dir=Config.OUTPUT_DIR, db=self.db
+            user_id=user_id, output_dir=legacy_config.OUTPUT_DIR, db=self.db
         )
         image_paths = pdf_reader.extract_pages_as_images(page_number, 1)
 
@@ -525,7 +524,7 @@ class PDFSenderBot:
             
             # Create a PDFReader instance for this user
             pdf_reader = PDFReader(
-                user_id=user_id, output_dir=Config.OUTPUT_DIR, db=self.db
+                user_id=user_id, output_dir=legacy_config.OUTPUT_DIR, db=self.db
             )
 
             # Extract pages as images
@@ -684,7 +683,7 @@ class PDFSenderBot:
             "📤 **Загрузка PDF книги**\n\n"
             "Отправьте мне PDF файл, который вы хотите читать.\n\n"
             "📋 **Требования:**\n"
-            f"• Максимальный размер: {Config.MAX_FILE_SIZE_MB}MB\n"
+            f"• Максимальный размер: {legacy_config.MAX_FILE_SIZE_MB}MB\n"
             "• Только PDF формат\n"
             "• Файл должен содержать текст или изображения",
             parse_mode="Markdown"
@@ -719,10 +718,10 @@ class PDFSenderBot:
 
             # Check file size before downloading
             file_size = message.document.file_size
-            if file_size and file_size > Config.MAX_FILE_SIZE_MB * 1024 * 1024:
+            if file_size and file_size > legacy_config.MAX_FILE_SIZE_MB * 1024 * 1024:
                 await message.reply(
                     f"❌ **Файл слишком большой!**\n\n"
-                    f"Максимальный размер: {Config.MAX_FILE_SIZE_MB}MB\n"
+                    f"Максимальный размер: {legacy_config.MAX_FILE_SIZE_MB}MB\n"
                     f"Размер вашего файла: {file_size / 1024 / 1024:.1f}MB",
                     parse_mode="Markdown",
                     reply_markup=self.keyboards.main_menu()
@@ -741,7 +740,7 @@ class PDFSenderBot:
             file_path = file_info.file_path
 
             # Create user directory if it doesn't exist
-            user_upload_dir = os.path.join(Config.UPLOAD_DIR, str(user_id))
+            user_upload_dir = os.path.join(legacy_config.UPLOAD_DIR, str(user_id))
             os.makedirs(user_upload_dir, exist_ok=True)
 
             # Generate local file path with timestamp to avoid conflicts
@@ -778,7 +777,7 @@ class PDFSenderBot:
 
             # Create a PDFReader instance to validate and set the PDF
             pdf_reader = PDFReader(
-                user_id=user_id, output_dir=Config.OUTPUT_DIR, db=self.db
+                user_id=user_id, output_dir=legacy_config.OUTPUT_DIR, db=self.db
             )
             success = pdf_reader.set_pdf_for_user(user_id, local_file_path)
 
@@ -1075,18 +1074,20 @@ class PDFSenderBot:
                     users_with_auto_send += 1
 
             users_text = (
-                f"👥 **Управление пользователями** 👥\n\n"
-                f"📊 **Статистика:**\n"
+                f"👥 <b>Управление пользователями</b> 👥\n\n"
+                f"📊 <b>Статистика:</b>\n"
                 f"👤 Всего пользователей: {total_users}\n"
                 f"📚 Активных пользователей: {active_users}\n"
                 f"🤖 С автоотправкой: {users_with_auto_send}\n\n"
-                f"📋 **Последние 10 пользователей:**\n"
+                f"📋 <b>Последние 10 пользователей:</b>\n"
             )
 
             # Show last 10 users
             recent_users = sorted(users, key=lambda x: x.get("joined_at") or "", reverse=True)[:10]
             for i, user in enumerate(recent_users, 1):
                 user_info = user.get("username", "Без имени")
+                # Escape HTML special characters
+                user_info = user_info.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
                 join_date = user.get("joined_at", "Неизвестно")[:10] if user.get("joined_at") else "Неизвестно"
                 current_page = user.get("current_page", 1)
                 users_text += f"{i}. @{user_info} (стр. {current_page}) - {join_date}\n"
@@ -1094,15 +1095,15 @@ class PDFSenderBot:
             await message.answer(
                 users_text,
                 reply_markup=self.keyboards.users_management_menu(),
-                parse_mode="Markdown"
+                parse_mode="HTML"
             )
 
         except Exception as e:
             BotLogger.log_error(e, f"users_command for user {user_id}")
             await message.answer(
-                "❌ **Ошибка получения данных пользователей**\n\n"
+                "❌ <b>Ошибка получения данных пользователей</b>\n\n"
                 "Произошла ошибка при загрузке информации о пользователях.",
-                parse_mode="Markdown"
+                parse_mode="HTML"
             )
 
     async def system_command(self, message: types.Message):
@@ -1122,7 +1123,17 @@ class PDFSenderBot:
             # System info
             cpu_percent = psutil.cpu_percent(interval=1)
             memory = psutil.virtual_memory()
-            disk = psutil.disk_usage(os.getcwd())
+            try:
+                # Try to get disk usage for current drive
+                current_drive = os.path.splitdrive(os.getcwd())[0] + os.sep
+                disk = psutil.disk_usage(current_drive)
+            except Exception:
+                # Fallback to root drive if current path fails
+                try:
+                    disk = psutil.disk_usage('/')
+                except Exception:
+                    # If all fails, create dummy disk info
+                    disk = type('DiskUsage', (), {'total': 0, 'used': 0, 'free': 0})()
             
             # Bot uptime (approximate)
             uptime = datetime.now() - datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -1141,9 +1152,9 @@ class PDFSenderBot:
                 f"📚 PDF файлы: {CleanupManager.format_file_size(storage_stats['upload_dir_size'])} ({storage_stats['upload_dir_files']} файлов)\n"
                 f"💿 Общий размер: {CleanupManager.format_file_size(storage_stats['total_size'])}\n\n"
                 f"⚙️ **Конфигурация:**\n"
-                f"📄 Макс. размер файла: {Config.MAX_FILE_SIZE_MB}MB\n"
-                f"🗂️ Хранение изображений: {Config.IMAGE_RETENTION_DAYS} дней\n"
-                f"🖼️ Качество по умолчанию: {Config.IMAGE_QUALITY}%"
+                f"📄 Макс. размер файла: {legacy_config.MAX_FILE_SIZE_MB}MB\n"
+                f"🗂️ Хранение изображений: {legacy_config.IMAGE_RETENTION_DAYS} дней\n"
+                f"🖼️ Качество по умолчанию: {legacy_config.IMAGE_QUALITY}%"
             )
 
             await message.answer(
@@ -1183,18 +1194,21 @@ class PDFSenderBot:
             
             if not log_entries:
                 await message.answer(
-                    "📝 **Логи пусты**\n\n"
+                    "📝 <b>Логи пусты</b>\n\n"
                     "Нет доступных записей в логах.",
-                    parse_mode="Markdown"
+                    parse_mode="HTML"
                 )
                 return
 
-            logs_text = "📝 **Последние записи логов** 📝\n\n"
+            logs_text = "📝 <b>Последние записи логов</b> 📝\n\n"
             
             for entry in log_entries[-10:]:  # Show last 10 entries
                 timestamp = entry.get('timestamp', 'Unknown')
                 level = entry.get('level', 'INFO')
                 message_text = entry.get('message', '')[:100]  # Truncate long messages
+                
+                # Escape HTML special characters in message text
+                message_text = message_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
                 
                 # Add emoji based on log level
                 emoji = {
@@ -1204,20 +1218,20 @@ class PDFSenderBot:
                     'DEBUG': '⚪'
                 }.get(level, '⚪')
                 
-                logs_text += f"{emoji} `{timestamp[:19]}` [{level}]\n{message_text}...\n\n"
+                logs_text += f"{emoji} <code>{timestamp[:19]}</code> [{level}]\n{message_text}...\n\n"
 
             await message.answer(
                 logs_text,
                 reply_markup=self.keyboards.logs_menu(),
-                parse_mode="Markdown"
+                parse_mode="HTML"
             )
 
         except Exception as e:
             BotLogger.log_error(e, f"logs_command for user {user_id}")
             await message.answer(
-                "❌ **Ошибка получения логов**\n\n"
+                "❌ <b>Ошибка получения логов</b>\n\n"
                 "Произошла ошибка при чтении файлов логов.",
-                parse_mode="Markdown"
+                parse_mode="HTML"
             )
 
     async def backup_command(self, message: types.Message):
@@ -1253,8 +1267,8 @@ class PDFSenderBot:
             # Create zip backup
             with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
                 # Backup database
-                if os.path.exists(Config.DATABASE_PATH):
-                    zipf.write(Config.DATABASE_PATH, "database.json")
+                if os.path.exists(config.database_path):
+                    zipf.write(config.database_path, "database.json")
                 
                 # Backup user settings
                 if os.path.exists("user_settings.json"):
@@ -1262,12 +1276,12 @@ class PDFSenderBot:
                 
                 # Backup config (without sensitive data)
                 zipf.writestr("config_backup.txt", 
-                    f"PAGES_PER_SEND={Config.PAGES_PER_SEND}\n"
-                    f"INTERVAL_HOURS={Config.INTERVAL_HOURS}\n"
-                    f"SCHEDULE_TIME={Config.SCHEDULE_TIME}\n"
-                    f"MAX_FILE_SIZE_MB={Config.MAX_FILE_SIZE_MB}\n"
-                    f"IMAGE_RETENTION_DAYS={Config.IMAGE_RETENTION_DAYS}\n"
-                    f"IMAGE_QUALITY={Config.IMAGE_QUALITY}\n"
+                    f"PAGES_PER_SEND={legacy_config.PAGES_PER_SEND}\n"
+                    f"INTERVAL_HOURS={legacy_config.INTERVAL_HOURS}\n"
+                    f"SCHEDULE_TIME={legacy_config.SCHEDULE_TIME}\n"
+                    f"MAX_FILE_SIZE_MB={legacy_config.MAX_FILE_SIZE_MB}\n"
+                    f"IMAGE_RETENTION_DAYS={legacy_config.IMAGE_RETENTION_DAYS}\n"
+                    f"IMAGE_QUALITY={legacy_config.IMAGE_QUALITY}\n"
                 )
             
             backup_size = os.path.getsize(backup_path) / 1024 / 1024  # MB

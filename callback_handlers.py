@@ -1,4 +1,5 @@
 import logging
+import os
 from aiogram import types
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -7,6 +8,7 @@ from typing import TYPE_CHECKING
 from keyboards import BotKeyboards
 from user_settings import UserSettings
 from logger_config import BotLogger
+from config import config
 
 if TYPE_CHECKING:
     from main import PDFSenderBot
@@ -69,6 +71,14 @@ class CallbackHandler:
                 await self._toggle_notifications(callback)
             elif data == "books_menu":
                 await self._show_books_menu(callback)
+            elif data == "upload_book":
+                await self._handle_upload_book(callback)
+            elif data == "list_books":
+                await self._handle_list_books(callback)
+            elif data == "change_book":
+                await self._handle_change_book(callback)
+            elif data == "reading_progress":
+                await self._handle_reading_progress(callback)
             elif data == "next_pages":
                 await self._send_next_pages(callback)
             elif data == "current_page":
@@ -500,18 +510,20 @@ class CallbackHandler:
             if not leaderboard:
                 text = "📊 **Таблица лидеров**\n\n🤷‍♂️ Пока никто не читал страницы!"
             else:
-                text = "📊 **Таблица лидеров**\n\n"
+                text = "📊 <b>Таблица лидеров</b>\n\n"
                 for i, user in enumerate(leaderboard, 1):
                     medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
                     username = user.get('username', 'Неизвестный')
+                    # Escape HTML special characters
+                    username = username.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
                     points = user.get('total_points', 0)
                     level = user.get('level', 1)
-                    text += f"{medal} **{username}** - {points} очков (Уровень {level})\n"
+                    text += f"{medal} <b>{username}</b> - {points} очков (Уровень {level})\n"
             
             await callback.message.edit_text(
                 text,
                 reply_markup=self.keyboards.main_menu(),
-                parse_mode="Markdown"
+                parse_mode="HTML"
             )
         except Exception as e:
             logger.error(f"Error showing leaderboard: {e}")
@@ -536,11 +548,12 @@ class CallbackHandler:
             
             user_achievements = user_data.get('achievements', [])
             all_achievements = self.bot.db_manager.get_available_achievements()
-            
+
             text = "🏆 **Ваши достижения**\n\n"
-            
+
             unlocked_count = 0
-            for achievement_id, achievement in all_achievements.items():
+            for achievement in all_achievements:
+                achievement_id = achievement['id']
                 if achievement_id in user_achievements:
                     text += f"✅ {achievement['icon']} **{achievement['name']}** - {achievement['description']} (+{achievement['points']} очков)\n"
                     unlocked_count += 1
@@ -628,3 +641,94 @@ class CallbackHandler:
         except Exception as e:
             logger.error(f"Error marking page as read: {e}")
             await callback.answer("❌ Ошибка при отметке страницы", show_alert=True)
+    
+    async def _handle_upload_book(self, callback: types.CallbackQuery):
+        """Обработать загрузку книги"""
+        await callback.message.edit_text(
+            "📤 <b>Загрузка PDF книги</b>\n\n"
+            "Отправьте мне PDF файл, который вы хотите читать.\n\n"
+            "📋 <b>Требования:</b>\n"
+            f"• Максимальный размер: {config.max_file_size // (1024 * 1024)}MB\n"
+            "• Только PDF формат\n"
+            "• Файл должен содержать текст или изображения",
+            parse_mode="HTML",
+            reply_markup=self.keyboards.main_menu()
+        )
+        await callback.answer()
+    
+    async def _handle_list_books(self, callback: types.CallbackQuery):
+        """Показать список книг пользователя"""
+        user_id = callback.from_user.id
+        pdf_path = self.bot.db.get_pdf_path(user_id)
+        
+        if not pdf_path or not os.path.exists(pdf_path):
+            await callback.message.edit_text(
+                "❌ <b>Книги не найдены</b>\n\n"
+                "У вас пока нет загруженных книг.\n"
+                "Используйте кнопку 'Upload book' для добавления книги.",
+                parse_mode="HTML",
+                reply_markup=self.keyboards.books_menu()
+            )
+        else:
+            filename = os.path.basename(pdf_path)
+            current_page = self.bot.db.get_current_page(user_id)
+            total_pages = self.bot.db.get_total_pages(user_id)
+            progress = (current_page / total_pages * 100) if total_pages > 0 else 0
+            
+            await callback.message.edit_text(
+                f"📚 <b>Ваши книги</b>\n\n"
+                f"📖 <b>Текущая книга:</b> {filename}\n"
+                f"📄 <b>Страница:</b> {current_page} из {total_pages}\n"
+                f"📊 <b>Прогресс:</b> {progress:.1f}%",
+                parse_mode="HTML",
+                reply_markup=self.keyboards.books_menu()
+            )
+        await callback.answer()
+    
+    async def _handle_change_book(self, callback: types.CallbackQuery):
+        """Обработать смену книги"""
+        await callback.message.edit_text(
+            "🔄 <b>Смена книги</b>\n\n"
+            "Чтобы сменить книгу, загрузите новый PDF файл.\n"
+            "Текущий прогресс будет сохранен.\n\n"
+            "Используйте команду /upload или кнопку 'Upload book'.",
+            parse_mode="HTML",
+            reply_markup=self.keyboards.books_menu()
+        )
+        await callback.answer()
+    
+    async def _handle_reading_progress(self, callback: types.CallbackQuery):
+        """Показать прогресс чтения"""
+        user_id = callback.from_user.id
+        pdf_path = self.bot.db.get_pdf_path(user_id)
+        
+        if not pdf_path or not os.path.exists(pdf_path):
+            await callback.message.edit_text(
+                "❌ <b>Книга не загружена</b>\n\n"
+                "Сначала загрузите PDF книгу.",
+                parse_mode="HTML",
+                reply_markup=self.keyboards.books_menu()
+            )
+        else:
+            filename = os.path.basename(pdf_path)
+            current_page = self.bot.db.get_current_page(user_id)
+            total_pages = self.bot.db.get_total_pages(user_id)
+            progress = (current_page / total_pages * 100) if total_pages > 0 else 0
+            
+            # Получаем статистику пользователя
+            user_data = self.bot.db.get_user_data(user_id)
+            books_completed = user_data.get('books_completed', 0)
+            total_points = user_data.get('points', 0)
+            
+            await callback.message.edit_text(
+                f"📊 <b>Прогресс чтения</b>\n\n"
+                f"📖 <b>Текущая книга:</b> {filename}\n"
+                f"📄 <b>Страница:</b> {current_page} из {total_pages}\n"
+                f"📈 <b>Прогресс:</b> {progress:.1f}%\n\n"
+                f"🏆 <b>Общая статистика:</b>\n"
+                f"📚 Завершено книг: {books_completed}\n"
+                f"⭐ Очки: {total_points}",
+                parse_mode="HTML",
+                reply_markup=self.keyboards.reading_progress_menu(current_page, total_pages)
+            )
+        await callback.answer()
