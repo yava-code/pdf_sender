@@ -23,12 +23,16 @@ from keyboards import BotKeyboards
 from callback_handlers import CallbackHandler
 from message_handlers import MessageHandler
 
-# Configure logging using our custom logger
+# some debug helpers - probably dont need these but keeping them around
+from tmp.utils import debug_print, cache
+from tmp.debug_helpers import profiler
+
+# configure logging
 init_logging()
 logger = logging.getLogger(__name__)
 
 
-# Define FSM states for PDF upload
+# fsm states for pdf upload - probably could be in separate file but whatever
 class UploadPDF(StatesGroup):
     waiting_for_file = State()
 
@@ -42,26 +46,26 @@ class PDFSenderBot:
         self.pdf_reader = PDFReader(output_dir=config.output_dir, db=self.db)
         self.scheduler = PDFScheduler(self)
         
-        # Initialize new components
+        # init components - could probably organize this better
         self.user_settings = UserSettings()
         self.keyboards = BotKeyboards()
         self.callback_handler = CallbackHandler(self)
         self.message_handler = MessageHandler(self)
 
-        # Create upload directory if it doesn't exist
+        # make upload dir if it doesnt exist
         os.makedirs(config.upload_dir, exist_ok=True)
 
-        # Register handlers
+        # register all the handlers
         self._register_handlers()
     
     @property
     def db_manager(self):
-        """Property to access database manager"""
+        """property to access db manager - lazy accessor"""
         return self.db
 
     def _register_handlers(self):
-        """Register all bot handlers"""
-        # Command handlers
+        """register all bot handlers - lots of them"""
+        # command handlers - probably too many but oh well
         self.dp.message.register(self.start_handler, Command("start"))
         self.dp.message.register(self.help_handler, Command("help"))
         self.dp.message.register(self.settings_handler, Command("settings"))
@@ -91,29 +95,29 @@ class PDFSenderBot:
         self.dp.message.register(self.process_pdf_upload, UploadPDF.waiting_for_file)
 
     async def start_handler(self, message: types.Message):
-        """Handle /start command"""
+        """handle /start command"""
         if message.from_user is None:
             return
 
         user_id = message.from_user.id
         username = message.from_user.username or "unknown"
 
-        # Add user to database
+        # add user to db
         self.db.add_user(user_id, username)
         
-        # Log user action
+        # log user action
         BotLogger.log_user_action(user_id, username, "start_command")
 
         welcome_text = (
-            "📚 **Welcome to PDF Sender Bot!**\n\n"
-            "I help you read books by sending PDF pages on schedule.\n\n"
-            "🎯 **Main features:**\n"
-            "• Automatic page sending on schedule\n"
-            "• Personal settings for each user\n"
-            "• Convenient control through buttons\n"
-            "• Jump to any page\n"
-            "• Reading statistics\n\n"
-            "📱 Use the buttons below for navigation:"
+            "📚 **welcome to PDF Sender Bot!**\n\n"
+            "i help you read books by sending pdf pages on schedule\n\n"
+            "🎯 **main features:**\n"
+            "• automatic page sending\n"
+            "• personal settings\n"
+            "• button controls\n"
+            "• jump to any page\n"
+            "• reading stats\n\n"
+            "📱 use buttons below:"
         )
 
         await message.answer(
@@ -121,7 +125,7 @@ class PDFSenderBot:
             reply_markup=self.keyboards.main_menu(),
             parse_mode="Markdown"
         )
-        logger.info(f"New user started: {user_id} (@{username})")
+        logger.info(f"new user started: {user_id} (@{username})")  # debug info
 
     async def settings_handler(self, message: types.Message):
         """Handle /settings command"""
@@ -278,56 +282,57 @@ class PDFSenderBot:
         user_id = message.from_user.id
         username = message.from_user.username or "unknown"
         
-        # Log user action
+        # log user action
         BotLogger.log_user_action(user_id, username, "next_pages")
 
-        # Check if user exists
+        # check if user exists - basic validation
         if not self.db.get_user(user_id):
-            await message.answer("You need to start the bot first with /start!", 
+            await message.answer("you need to start the bot first with /start!", 
                                reply_markup=self.keyboards.main_menu())
             return
 
-        # Check if user has a PDF
+        # check if user has pdf
         pdf_path = self.db.get_pdf_path(user_id)
         if not pdf_path or not os.path.exists(pdf_path):
             await message.answer(
-                "You need to upload a PDF book first! Use /upload.",
+                "you need to upload a pdf book first! use /upload",
                 reply_markup=self.keyboards.main_menu()
             )
             return
 
         try:
-            # Get user settings
+            # get user settings
             user_settings = self.user_settings.get_user_settings(user_id)
             pages_per_send = user_settings["pages_per_send"]
             
             current_page = self.db.get_current_page(user_id)
             total_pages = self.db.get_total_pages(user_id)
             
-            # Check if we've reached the end
+            # check if book is finished
             if current_page >= total_pages:
                 await message.answer(
-                    "📖 You have already finished the book! 🎉",
+                    "📖 you already finished the book! 🎉",
                     reply_markup=self.keyboards.main_menu()
                 )
                 return
             
             await self.send_pages_to_user(user_id, current_page)
 
-            # Explicitly increment page as expected by tests
+            # increment page - this is kinda hacky but works
             new_page = self.db.increment_page(user_id, pages_per_send)
             
             end_page = min(current_page + pages_per_send - 1, total_pages)
             await message.answer(
-                f"📖 **Sent pages {current_page}-{end_page}**\n"
-                f"📍 Current page is now: {new_page}",
+                f"📖 **sent pages {current_page}-{end_page}**\n"
+                f"📍 current page is now: {new_page}",
                 parse_mode="Markdown",
                 reply_markup=self.keyboards.reading_progress_menu(new_page, total_pages)
             )
 
         except Exception as e:
+            print(f"DEBUG: Error in next_pages_handler: {e}")  # debug print
             BotLogger.log_error(e, f"next_pages_handler for user {user_id}")
-            await message.answer("❌ Error sending pages. Try again later.", 
+            await message.answer("❌ error sending pages. try again later", 
                                reply_markup=self.keyboards.main_menu())
 
     async def current_page_handler(self, message: types.Message):
@@ -513,65 +518,69 @@ class PDFSenderBot:
             )
 
     async def send_pages_to_user(self, user_id: int, page_number: int):
-        """Send PDF pages to a user"""
+        """send pdf pages to user"""
+        debug_print(f"sending pages to user {user_id}, starting from page {page_number}")  # debug
+        profiler.track("send_pages_to_user")  # track calls
+        
         try:
-            # Get user settings
+            # get user settings
             user_settings = self.user_settings.get_user_settings(user_id)
             pages_per_send = user_settings["pages_per_send"]
             image_quality = user_settings["image_quality"]
             notifications_enabled = user_settings["notifications_enabled"]
             
-            # Log user action
+            # log user action
             username = self.db.get_user(user_id).get("username", "unknown")
             BotLogger.log_user_action(user_id, username, f"send_pages: {page_number}")
             
-            # Create a PDFReader instance for this user
+            # create pdf reader instance
             pdf_reader = PDFReader(
                 user_id=user_id, output_dir=legacy_config.OUTPUT_DIR, db=self.db
             )
 
-            # Extract pages as images
+            # extract pages as images
             image_paths = pdf_reader.extract_pages_as_images(
                 page_number, pages_per_send
             )
 
             if not image_paths:
                 if notifications_enabled:
-                    await self.bot.send_message(user_id, "❌ No pages to send.")
+                    await self.bot.send_message(user_id, "❌ no pages to send")
                 return
 
-            # Send a message with the page number
+            # send message with page number
             total_pages = self.db.get_total_pages(user_id)
             if notifications_enabled:
                 await self.bot.send_message(
                     user_id, 
-                    f"📖 **Page {page_number} of {total_pages}**",
+                    f"📖 **page {page_number} of {total_pages}**",
                     parse_mode="Markdown"
                 )
 
-            # Send each page as a photo
+            # send each page as photo
             for i, image_path in enumerate(image_paths):
-                # Create caption
-                caption = f"📖 Page {page_number + i}"
+                # create caption
+                caption = f"📖 page {page_number + i}"
 
-                # Send photo
+                # send photo
                 photo = FSInputFile(image_path)
                 await self.bot.send_photo(chat_id=user_id, photo=photo, caption=caption)
 
-            # Update last sent time and current page
+            # update timestamps and page counter
             self.db.update_last_sent(user_id)
             self.db.set_current_page(user_id, page_number + pages_per_send)
 
-            # Cleanup old images
+            # cleanup
             pdf_reader.cleanup_images()
 
-            logger.info(f"Sent {len(image_paths)} pages to user {user_id}")
+            logger.info(f"sent {len(image_paths)} pages to user {user_id}")
 
         except Exception as e:
+            print(f"ERROR in send_pages_to_user: {e}")  # quick debug print
             BotLogger.log_error(e, f"sending pages to user {user_id}")
             if user_settings.get("notifications_enabled", True):
                 await self.bot.send_message(
-                    user_id, "❌ Error sending pages. Try again later."
+                    user_id, "❌ error sending pages. try again later"
                 )
 
     async def check_and_send_pages(self):

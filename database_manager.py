@@ -12,7 +12,7 @@ class DatabaseManager:
         self._ensure_database_exists()
 
     def _ensure_database_exists(self):
-        """Create database file if it doesn't exist"""
+        """create db file if it doesnt exist"""
         if not os.path.exists(self.db_path):
             initial_data = {
                 "users": [],
@@ -23,36 +23,37 @@ class DatabaseManager:
             self.save_data(initial_data)
     
     def _get_default_achievements(self) -> List[Dict[str, Any]]:
-        """Get default achievements list"""
+        """default achievements - maybe should be in config but whatever"""
         return [
-            {"id": "first_page", "name": "First Steps", "description": "Read your first page", "points": 10, "icon": "🎯"},
-            {"id": "page_10", "name": "Getting Started", "description": "Read 10 pages", "points": 50, "icon": "📖"},
-            {"id": "page_50", "name": "Bookworm", "description": "Read 50 pages", "points": 100, "icon": "🐛"},
-            {"id": "page_100", "name": "Dedicated Reader", "description": "Read 100 pages", "points": 200, "icon": "📚"},
-            {"id": "page_500", "name": "Scholar", "description": "Read 500 pages", "points": 500, "icon": "🎓"},
-            {"id": "daily_streak_7", "name": "Week Warrior", "description": "Read for 7 days in a row", "points": 150, "icon": "🔥"},
-            {"id": "daily_streak_30", "name": "Monthly Master", "description": "Read for 30 days in a row", "points": 1000, "icon": "👑"},
-            {"id": "book_complete", "name": "Book Finisher", "description": "Complete your first book", "points": 300, "icon": "🏆"},
-            {"id": "speed_reader", "name": "Speed Reader", "description": "Read 20 pages in one session", "points": 100, "icon": "⚡"},
-            {"id": "night_owl", "name": "Night Owl", "description": "Read after 10 PM", "points": 25, "icon": "🦉"}
+            {"id": "first_page", "name": "first steps", "description": "read your first page", "points": 10, "icon": "🎯"},
+            {"id": "page_10", "name": "getting started", "description": "read 10 pages", "points": 50, "icon": "📖"},
+            {"id": "page_50", "name": "bookworm", "description": "read 50 pages", "points": 100, "icon": "🐛"},
+            {"id": "page_100", "name": "dedicated reader", "description": "read 100 pages", "points": 200, "icon": "📚"},
+            {"id": "page_500", "name": "scholar", "description": "read 500 pages", "points": 500, "icon": "🎓"},
+            {"id": "daily_streak_7", "name": "week warrior", "description": "read for 7 days in a row", "points": 150, "icon": "🔥"},
+            {"id": "daily_streak_30", "name": "monthly master", "description": "read for 30 days in a row", "points": 1000, "icon": "👑"},
+            {"id": "book_complete", "name": "book finisher", "description": "complete your first book", "points": 300, "icon": "🏆"},
+            {"id": "speed_reader", "name": "speed reader", "description": "read 20 pages in one session", "points": 100, "icon": "⚡"},
+            {"id": "night_owl", "name": "night owl", "description": "read after 10 PM", "points": 25, "icon": "🦉"}
         ]
 
     def load_data(self) -> Dict[str, Any]:
-        """Load data from JSON database"""
+        """load data from json db"""
         try:
             with open(self.db_path, "r", encoding="utf-8") as file:
                 return json.load(file)
         except (FileNotFoundError, json.JSONDecodeError):
+            # if file is corrupted or missing, recreate it
             self._ensure_database_exists()
             return self.load_data()
 
     def save_data(self, data: Dict[str, Any]):
-        """Save data to JSON database"""
+        """save data to json db"""
         with open(self.db_path, "w", encoding="utf-8") as file:
             json.dump(data, file, indent=2, ensure_ascii=False)
 
     def get_user_data(self, user_id: int) -> Dict[str, Any]:
-        """Get user data from database"""
+        """get user data from db"""
         data = self.load_data()
         users = data.get("users", [])
 

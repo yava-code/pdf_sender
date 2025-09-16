@@ -6,21 +6,21 @@ from pydantic_settings import BaseSettings
 from functools import lru_cache
 
 class Config(BaseSettings):
-    """Application configuration using Pydantic settings."""
+    """app config using pydantic - probably overkill but whatever"""
     
-# bot configuration
-    bot_token: str = Field(default="dummy_token", description="Telegram bot token", alias="BOT_TOKEN")
+    # bot configuration
+    bot_token: str = Field(default="dummy_token", description="telegram bot token", alias="BOT_TOKEN")
     
-    # Database configuration
-    database_path: str = Field("pdf_sender.json", description="Path to JSON database file", alias="DATABASE_PATH")
+    # database config
+    database_path: str = Field("pdf_sender.json", description="path to json db file", alias="DATABASE_PATH")
     
-    # PDF configuration
-    pdf_path: str = Field("book.pdf", description="Default PDF file path", alias="PDF_PATH")
-    pages_per_send: int = Field(3, ge=1, description="Number of pages to send at once", alias="PAGES_PER_SEND")
+    # pdf stuff
+    pdf_path: str = Field("book.pdf", description="default pdf path", alias="PDF_PATH")
+    pages_per_send: int = Field(3, ge=1, description="pages to send at once", alias="PAGES_PER_SEND")
     
-    # Scheduler configuration
-    interval_hours: int = Field(6, ge=1, le=168, description="Hours between scheduled sends", alias="INTERVAL_HOURS")
-    schedule_time: str = Field("14:00", description="Time to send scheduled messages", alias="SCHEDULE_TIME")
+    # scheduler settings
+    interval_hours: int = Field(6, ge=1, le=168, description="hours between sends", alias="INTERVAL_HOURS")
+    schedule_time: str = Field("14:00", description="time to send messages", alias="SCHEDULE_TIME")
     
     # Upload configuration
     upload_dir: str = Field("uploads", description="Directory for uploaded files", alias="UPLOAD_DIR")
