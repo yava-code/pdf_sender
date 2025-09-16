@@ -598,84 +598,84 @@ class PDFSenderBot:
                 try:
                     user_id = user["id"]
                     
-                    # Get user settings
-                    user_settings = self.user_settings.get_user_settings(user_id)
+                    # get user settings
+                    user_cfg = self.user_settings.get_user_settings(user_id)
                     
-                    # Skip if auto-send is disabled
-                    if not user_settings["auto_send_enabled"]:
+                    # skip if auto-send disabled
+                    if not user_cfg["auto_send_enabled"]:
                         continue
 
-                    # Check if user has a PDF
-                    pdf_path = self.db.get_pdf_path(user_id)
-                    if not pdf_path or not os.path.exists(pdf_path):
-                        logger.info(f"User {user_id} has no PDF, skipping")
+                    # check if user has pdf
+                    pdf_file = self.db.get_pdf_path(user_id)
+                    if not pdf_file or not os.path.exists(pdf_file):
+                        logger.info(f"user {user_id} has no pdf, skipping")
                         continue
 
-                    # Get user's schedule settings
-                    schedule_time = user_settings["schedule_time"]
-                    interval_hours = user_settings["interval_hours"]
-                    pages_per_send = user_settings["pages_per_send"]
+                    # get schedule stuff
+                    sched_time = user_cfg["schedule_time"]  
+                    interval_hrs = user_cfg["interval_hours"]
+                    pages_count = user_cfg["pages_per_send"]
                     
-                    # Check if it's time to send based on schedule
-                    should_send = False
+                    # check if time to send
+                    should_send_now = False
                     
-                    if schedule_time and schedule_time != "disabled":
-                        # Parse schedule time (HH:MM format)
+                    if sched_time and sched_time != "disabled":
+                        # parse time format HH:MM
                         try:
-                            schedule_hour, schedule_minute = map(int, schedule_time.split(":"))
-                            schedule_today = now.replace(hour=schedule_hour, minute=schedule_minute, second=0, microsecond=0)
+                            hr, min = map(int, sched_time.split(":"))
+                            today_schedule = now.replace(hour=hr, minute=min, second=0, microsecond=0)
                             
-                            # Check if we should send at this scheduled time
-                            last_sent = self.db.get_last_sent(user_id)
-                            if not last_sent:
-                                # Never sent before, send if it's past schedule time today
-                                should_send = now >= schedule_today
+                            # check if should send now
+                            last_send_time = self.db.get_last_sent(user_id)
+                            if not last_send_time:
+                                # never sent before, send if past schedule time
+                                should_send_now = now >= today_schedule
                             else:
-                                # Check if it's a new day and past schedule time
-                                last_sent_date = last_sent.date()
+                                # check if new day and past schedule time
+                                last_date = last_send_time.date()
                                 today = now.date()
-                                if today > last_sent_date and now >= schedule_today:
-                                    should_send = True
+                                if today > last_date and now >= today_schedule:
+                                    should_send_now = True
                         except ValueError:
-                            logger.warning(f"Invalid schedule time format for user {user_id}: {schedule_time}")
+                            logger.warning(f"bad schedule time format for user {user_id}: {sched_time}")
                     else:
-                        # Use interval-based sending
-                        last_sent = self.db.get_last_sent(user_id)
+                        # use interval sending
+                        last_send_time = self.db.get_last_sent(user_id)
                         if (
-                            not last_sent
-                            or (now - last_sent).total_seconds() >= interval_hours * 3600
+                            not last_send_time
+                            or (now - last_send_time).total_seconds() >= interval_hrs * 3600
                         ):
-                            should_send = True
+                            should_send_now = True
                     
-                    if should_send:
-                        # Get current page
-                        current_page = self.db.get_current_page(user_id)
+                    if should_send_now:
+                        # get current page
+                        curr_page = self.db.get_current_page(user_id)
                         
-                        # Check if we've reached the end of the book
-                        total_pages = self.db.get_total_pages(user_id)
-                        if current_page >= total_pages:
-                            logger.info(f"User {user_id} has finished their book")
+                        # check if book finished
+                        total_pgs = self.db.get_total_pages(user_id)
+                        if curr_page >= total_pgs:
+                            logger.info(f"user {user_id} finished book")
                             continue
 
-                        # Send pages
-                        await self.send_pages_to_user(user_id, current_page)
-                        logger.info(f"Sent scheduled pages to user {user_id} (page {current_page})")
+                        # send the pages
+                        await self.send_pages_to_user(user_id, curr_page)
+                        logger.info(f"sent scheduled pages to user {user_id} (page {curr_page})")
                     else:
-                        # Log next send time
-                        last_sent = self.db.get_last_sent(user_id)
-                        if last_sent and schedule_time == "disabled":
-                            next_send = last_sent + timedelta(hours=interval_hours)
-                            time_until = next_send - now
-                            logger.debug(f"User {user_id}: Next send in {time_until}")
+                        # log next send time - maybe too verbose but useful for debugging
+                        last_send_time = self.db.get_last_sent(user_id)
+                        if last_send_time and sched_time == "disabled":
+                            next_send = last_send_time + timedelta(hours=interval_hrs)
+                            time_left = next_send - now
+                            logger.debug(f"user {user_id}: next send in {time_left}")
 
                 except Exception as e:
-                    logger.error(f"Error processing user {user_id}: {e}")
+                    logger.error(f"error processing user {user_id}: {e}")
 
         except Exception as e:
-            logger.error(f"Error in check_and_send_pages: {e}")
+            logger.error(f"error in check_and_send_pages: {e}")
 
     async def upload_command(self, message: types.Message, state: FSMContext):
-        """Handle /upload command"""
+        """handle /upload command"""
         if message.from_user is None:
             return
 
