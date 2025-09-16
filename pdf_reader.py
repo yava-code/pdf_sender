@@ -2,10 +2,11 @@ import logging
 import os
 from typing import List, Optional
 
-import fitz as pymupdf
+import fitz as pymupdf  # mupdf bindings
 
 from config import get_config
 from database_manager import DatabaseManager
+from utils import clean_filename, get_file_size_mb  # some helper functions
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ class PDFReader:
         self.db = db or DatabaseManager(get_config().database_path)
         self.user_id = user_id
 
-        # If user_id is provided, get PDF path from database
+        # if user_id provided, get pdf path from db
         if user_id is not None:
             self.pdf_path = pdf_path or self.db.get_pdf_path(user_id)
             if not self.pdf_path or not os.path.exists(self.pdf_path):

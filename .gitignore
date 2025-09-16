@@ -162,6 +162,7 @@ cython_debug/
 output/
 *.pdf
 database.json
+test_db.json
 .DS_Store
 Thumbs.db
 
@@ -178,3 +179,8 @@ logs/
 # Temporary files
 *.tmp
 *.temp
+
+# some files i might create during development
+scratch/
+debug_output/
+old_versions/

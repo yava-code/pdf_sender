@@ -1,0 +1,49 @@
+random development notes
+
+- need to fix the scheduled sending bug where it sends multiple times
+- users complaining about image quality, maybe increase default quality
+- consider adding support for other file formats like epub
+- the database gets pretty big with lots of users, maybe switch to sqlite
+- rate limiting might be too strict for power users
+- keyboard layout could be better organized
+- error messages are in russian and english randomly, should be consistent
+- cleanup job runs too often, maybe change to weekly instead of daily
+- achievement system is pretty basic, could add more interesting achievements
+- logging is too verbose in production, dial it down
+- dockerfile needs updating, python version is old
+- tests are flaky sometimes, especially the async ones
+- backup feature is manual only, should automate it
+- admin commands need better access control
+- pdf parsing fails on some encrypted files
+- memory usage grows over time, probably a leak somewhere
+- telegram bot api changes broke some functionality recently
+
+TODO:
+[ ] fix memory leak in pdf processing
+[ ] add epub support  
+[ ] better error handling for corrupted files
+[ ] move to postgresql for better performance
+[ ] add user feedback system
+[ ] implement proper CI/CD pipeline
+[ ] write more comprehensive tests
+[ ] add monitoring and alerting
+[ ] optimize image compression
+[ ] add dark mode for messages (lol not really possible but would be cool)
+
+bugs to fix eventually:
+- scheduler sometimes skips days
+- file uploads fail randomly
+- bot crashes on very large pdfs
+- user settings don't persist sometimes
+- achievements unlock incorrectly
+- leaderboard calculation is wrong
+
+random ideas:
+- book recommendations based on reading history
+- social features like sharing progress
+- reading groups or book clubs
+- integration with goodreads
+- voice narration (probably too expensive)
+- mobile app companion
+- web dashboard for admins
+- better analytics and insights

@@ -12,11 +12,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import FSInputFile
 
 from cleanup_manager import CleanupManager
-<<<<<<< HEAD
-from config import config, legacy_config
-=======
-from config import get_config, Config
->>>>>>> b55000166c88d8e62842cd6c782225c1545c00cc
+from config import config, legacy_config, get_config
 from database_manager import DatabaseManager
 from file_validator import FileValidator
 from pdf_reader import PDFReader
@@ -27,52 +23,49 @@ from keyboards import BotKeyboards
 from callback_handlers import CallbackHandler
 from message_handlers import MessageHandler
 
-# Configure logging using our custom logger
+# some debug helpers - probably dont need these but keeping them around
+from tmp.utils import debug_print, cache
+from tmp.debug_helpers import profiler
+
+# configure logging
 init_logging()
 logger = logging.getLogger(__name__)
 
 
-# Define FSM states for PDF upload
+# fsm states for pdf upload - probably could be in separate file but whatever
 class UploadPDF(StatesGroup):
     waiting_for_file = State()
 
 
 class PDFSenderBot:
     def __init__(self):
-<<<<<<< HEAD
-=======
-        config = get_config()
->>>>>>> b55000166c88d8e62842cd6c782225c1545c00cc
+        config = get_config()  # yeah i know this could be better but works for now
         self.bot = Bot(token=config.bot_token)
         self.dp = Dispatcher(storage=MemoryStorage())
         self.db = DatabaseManager()
         self.pdf_reader = PDFReader(output_dir=config.output_dir, db=self.db)
         self.scheduler = PDFScheduler(self)
         
-        # Initialize new components
+        # init components - could probably organize this better
         self.user_settings = UserSettings()
         self.keyboards = BotKeyboards()
         self.callback_handler = CallbackHandler(self)
         self.message_handler = MessageHandler(self)
 
-        # Create upload directory if it doesn't exist
-<<<<<<< HEAD
-        os.makedirs(legacy_config.UPLOAD_DIR, exist_ok=True)
-=======
+        # make upload dir if it doesnt exist
         os.makedirs(config.upload_dir, exist_ok=True)
->>>>>>> b55000166c88d8e62842cd6c782225c1545c00cc
 
-        # Register handlers
+        # register all the handlers
         self._register_handlers()
     
     @property
     def db_manager(self):
-        """Property to access database manager"""
+        """property to access db manager - lazy accessor"""
         return self.db
 
     def _register_handlers(self):
-        """Register all bot handlers"""
-        # Command handlers
+        """register all bot handlers - lots of them"""
+        # command handlers - probably too many but oh well
         self.dp.message.register(self.start_handler, Command("start"))
         self.dp.message.register(self.help_handler, Command("help"))
         self.dp.message.register(self.settings_handler, Command("settings"))
@@ -102,29 +95,29 @@ class PDFSenderBot:
         self.dp.message.register(self.process_pdf_upload, UploadPDF.waiting_for_file)
 
     async def start_handler(self, message: types.Message):
-        """Handle /start command"""
+        """handle /start command"""
         if message.from_user is None:
             return
 
         user_id = message.from_user.id
         username = message.from_user.username or "unknown"
 
-        # Add user to database
+        # add user to db
         self.db.add_user(user_id, username)
         
-        # Log user action
+        # log user action
         BotLogger.log_user_action(user_id, username, "start_command")
 
         welcome_text = (
-            "📚 **Welcome to PDF Sender Bot!**\n\n"
-            "I help you read books by sending PDF pages on schedule.\n\n"
-            "🎯 **Main features:**\n"
-            "• Automatic page sending on schedule\n"
-            "• Personal settings for each user\n"
-            "• Convenient control through buttons\n"
-            "• Jump to any page\n"
-            "• Reading statistics\n\n"
-            "📱 Use the buttons below for navigation:"
+            "📚 **welcome to PDF Sender Bot!**\n\n"
+            "i help you read books by sending pdf pages on schedule\n\n"
+            "🎯 **main features:**\n"
+            "• automatic page sending\n"
+            "• personal settings\n"
+            "• button controls\n"
+            "• jump to any page\n"
+            "• reading stats\n\n"
+            "📱 use buttons below:"
         )
 
         await message.answer(
@@ -132,7 +125,7 @@ class PDFSenderBot:
             reply_markup=self.keyboards.main_menu(),
             parse_mode="Markdown"
         )
-        logger.info(f"New user started: {user_id} (@{username})")
+        logger.info(f"new user started: {user_id} (@{username})")  # debug info
 
     async def settings_handler(self, message: types.Message):
         """Handle /settings command"""
@@ -289,56 +282,57 @@ class PDFSenderBot:
         user_id = message.from_user.id
         username = message.from_user.username or "unknown"
         
-        # Log user action
+        # log user action
         BotLogger.log_user_action(user_id, username, "next_pages")
 
-        # Check if user exists
+        # check if user exists - basic validation
         if not self.db.get_user(user_id):
-            await message.answer("You need to start the bot first with /start!", 
+            await message.answer("you need to start the bot first with /start!", 
                                reply_markup=self.keyboards.main_menu())
             return
 
-        # Check if user has a PDF
+        # check if user has pdf
         pdf_path = self.db.get_pdf_path(user_id)
         if not pdf_path or not os.path.exists(pdf_path):
             await message.answer(
-                "You need to upload a PDF book first! Use /upload.",
+                "you need to upload a pdf book first! use /upload",
                 reply_markup=self.keyboards.main_menu()
             )
             return
 
         try:
-            # Get user settings
+            # get user settings
             user_settings = self.user_settings.get_user_settings(user_id)
             pages_per_send = user_settings["pages_per_send"]
             
             current_page = self.db.get_current_page(user_id)
             total_pages = self.db.get_total_pages(user_id)
             
-            # Check if we've reached the end
+            # check if book is finished
             if current_page >= total_pages:
                 await message.answer(
-                    "📖 You have already finished the book! 🎉",
+                    "📖 you already finished the book! 🎉",
                     reply_markup=self.keyboards.main_menu()
                 )
                 return
             
             await self.send_pages_to_user(user_id, current_page)
 
-            # Explicitly increment page as expected by tests
+            # increment page - this is kinda hacky but works
             new_page = self.db.increment_page(user_id, pages_per_send)
             
             end_page = min(current_page + pages_per_send - 1, total_pages)
             await message.answer(
-                f"📖 **Sent pages {current_page}-{end_page}**\n"
-                f"📍 Current page is now: {new_page}",
+                f"📖 **sent pages {current_page}-{end_page}**\n"
+                f"📍 current page is now: {new_page}",
                 parse_mode="Markdown",
                 reply_markup=self.keyboards.reading_progress_menu(new_page, total_pages)
             )
 
         except Exception as e:
+            print(f"DEBUG: Error in next_pages_handler: {e}")  # debug print
             BotLogger.log_error(e, f"next_pages_handler for user {user_id}")
-            await message.answer("❌ Error sending pages. Try again later.", 
+            await message.answer("❌ error sending pages. try again later", 
                                reply_markup=self.keyboards.main_menu())
 
     async def current_page_handler(self, message: types.Message):
@@ -524,65 +518,69 @@ class PDFSenderBot:
             )
 
     async def send_pages_to_user(self, user_id: int, page_number: int):
-        """Send PDF pages to a user"""
+        """send pdf pages to user"""
+        debug_print(f"sending pages to user {user_id}, starting from page {page_number}")  # debug
+        profiler.track("send_pages_to_user")  # track calls
+        
         try:
-            # Get user settings
+            # get user settings
             user_settings = self.user_settings.get_user_settings(user_id)
             pages_per_send = user_settings["pages_per_send"]
             image_quality = user_settings["image_quality"]
             notifications_enabled = user_settings["notifications_enabled"]
             
-            # Log user action
+            # log user action
             username = self.db.get_user(user_id).get("username", "unknown")
             BotLogger.log_user_action(user_id, username, f"send_pages: {page_number}")
             
-            # Create a PDFReader instance for this user
+            # create pdf reader instance
             pdf_reader = PDFReader(
                 user_id=user_id, output_dir=legacy_config.OUTPUT_DIR, db=self.db
             )
 
-            # Extract pages as images
+            # extract pages as images
             image_paths = pdf_reader.extract_pages_as_images(
                 page_number, pages_per_send
             )
 
             if not image_paths:
                 if notifications_enabled:
-                    await self.bot.send_message(user_id, "❌ No pages to send.")
+                    await self.bot.send_message(user_id, "❌ no pages to send")
                 return
 
-            # Send a message with the page number
+            # send message with page number
             total_pages = self.db.get_total_pages(user_id)
             if notifications_enabled:
                 await self.bot.send_message(
                     user_id, 
-                    f"📖 **Page {page_number} of {total_pages}**",
+                    f"📖 **page {page_number} of {total_pages}**",
                     parse_mode="Markdown"
                 )
 
-            # Send each page as a photo
+            # send each page as photo
             for i, image_path in enumerate(image_paths):
-                # Create caption
-                caption = f"📖 Page {page_number + i}"
+                # create caption
+                caption = f"📖 page {page_number + i}"
 
-                # Send photo
+                # send photo
                 photo = FSInputFile(image_path)
                 await self.bot.send_photo(chat_id=user_id, photo=photo, caption=caption)
 
-            # Update last sent time and current page
+            # update timestamps and page counter
             self.db.update_last_sent(user_id)
             self.db.set_current_page(user_id, page_number + pages_per_send)
 
-            # Cleanup old images
+            # cleanup
             pdf_reader.cleanup_images()
 
-            logger.info(f"Sent {len(image_paths)} pages to user {user_id}")
+            logger.info(f"sent {len(image_paths)} pages to user {user_id}")
 
         except Exception as e:
+            print(f"ERROR in send_pages_to_user: {e}")  # quick debug print
             BotLogger.log_error(e, f"sending pages to user {user_id}")
             if user_settings.get("notifications_enabled", True):
                 await self.bot.send_message(
-                    user_id, "❌ Error sending pages. Try again later."
+                    user_id, "❌ error sending pages. try again later"
                 )
 
     async def check_and_send_pages(self):
@@ -600,84 +598,84 @@ class PDFSenderBot:
                 try:
                     user_id = user["id"]
                     
-                    # Get user settings
-                    user_settings = self.user_settings.get_user_settings(user_id)
+                    # get user settings
+                    user_cfg = self.user_settings.get_user_settings(user_id)
                     
-                    # Skip if auto-send is disabled
-                    if not user_settings["auto_send_enabled"]:
+                    # skip if auto-send disabled
+                    if not user_cfg["auto_send_enabled"]:
                         continue
 
-                    # Check if user has a PDF
-                    pdf_path = self.db.get_pdf_path(user_id)
-                    if not pdf_path or not os.path.exists(pdf_path):
-                        logger.info(f"User {user_id} has no PDF, skipping")
+                    # check if user has pdf
+                    pdf_file = self.db.get_pdf_path(user_id)
+                    if not pdf_file or not os.path.exists(pdf_file):
+                        logger.info(f"user {user_id} has no pdf, skipping")
                         continue
 
-                    # Get user's schedule settings
-                    schedule_time = user_settings["schedule_time"]
-                    interval_hours = user_settings["interval_hours"]
-                    pages_per_send = user_settings["pages_per_send"]
+                    # get schedule stuff
+                    sched_time = user_cfg["schedule_time"]  
+                    interval_hrs = user_cfg["interval_hours"]
+                    pages_count = user_cfg["pages_per_send"]
                     
-                    # Check if it's time to send based on schedule
-                    should_send = False
+                    # check if time to send
+                    should_send_now = False
                     
-                    if schedule_time and schedule_time != "disabled":
-                        # Parse schedule time (HH:MM format)
+                    if sched_time and sched_time != "disabled":
+                        # parse time format HH:MM
                         try:
-                            schedule_hour, schedule_minute = map(int, schedule_time.split(":"))
-                            schedule_today = now.replace(hour=schedule_hour, minute=schedule_minute, second=0, microsecond=0)
+                            hr, min = map(int, sched_time.split(":"))
+                            today_schedule = now.replace(hour=hr, minute=min, second=0, microsecond=0)
                             
-                            # Check if we should send at this scheduled time
-                            last_sent = self.db.get_last_sent(user_id)
-                            if not last_sent:
-                                # Never sent before, send if it's past schedule time today
-                                should_send = now >= schedule_today
+                            # check if should send now
+                            last_send_time = self.db.get_last_sent(user_id)
+                            if not last_send_time:
+                                # never sent before, send if past schedule time
+                                should_send_now = now >= today_schedule
                             else:
-                                # Check if it's a new day and past schedule time
-                                last_sent_date = last_sent.date()
+                                # check if new day and past schedule time
+                                last_date = last_send_time.date()
                                 today = now.date()
-                                if today > last_sent_date and now >= schedule_today:
-                                    should_send = True
+                                if today > last_date and now >= today_schedule:
+                                    should_send_now = True
                         except ValueError:
-                            logger.warning(f"Invalid schedule time format for user {user_id}: {schedule_time}")
+                            logger.warning(f"bad schedule time format for user {user_id}: {sched_time}")
                     else:
-                        # Use interval-based sending
-                        last_sent = self.db.get_last_sent(user_id)
+                        # use interval sending
+                        last_send_time = self.db.get_last_sent(user_id)
                         if (
-                            not last_sent
-                            or (now - last_sent).total_seconds() >= interval_hours * 3600
+                            not last_send_time
+                            or (now - last_send_time).total_seconds() >= interval_hrs * 3600
                         ):
-                            should_send = True
+                            should_send_now = True
                     
-                    if should_send:
-                        # Get current page
-                        current_page = self.db.get_current_page(user_id)
+                    if should_send_now:
+                        # get current page
+                        curr_page = self.db.get_current_page(user_id)
                         
-                        # Check if we've reached the end of the book
-                        total_pages = self.db.get_total_pages(user_id)
-                        if current_page >= total_pages:
-                            logger.info(f"User {user_id} has finished their book")
+                        # check if book finished
+                        total_pgs = self.db.get_total_pages(user_id)
+                        if curr_page >= total_pgs:
+                            logger.info(f"user {user_id} finished book")
                             continue
 
-                        # Send pages
-                        await self.send_pages_to_user(user_id, current_page)
-                        logger.info(f"Sent scheduled pages to user {user_id} (page {current_page})")
+                        # send the pages
+                        await self.send_pages_to_user(user_id, curr_page)
+                        logger.info(f"sent scheduled pages to user {user_id} (page {curr_page})")
                     else:
-                        # Log next send time
-                        last_sent = self.db.get_last_sent(user_id)
-                        if last_sent and schedule_time == "disabled":
-                            next_send = last_sent + timedelta(hours=interval_hours)
-                            time_until = next_send - now
-                            logger.debug(f"User {user_id}: Next send in {time_until}")
+                        # log next send time - maybe too verbose but useful for debugging
+                        last_send_time = self.db.get_last_sent(user_id)
+                        if last_send_time and sched_time == "disabled":
+                            next_send = last_send_time + timedelta(hours=interval_hrs)
+                            time_left = next_send - now
+                            logger.debug(f"user {user_id}: next send in {time_left}")
 
                 except Exception as e:
-                    logger.error(f"Error processing user {user_id}: {e}")
+                    logger.error(f"error processing user {user_id}: {e}")
 
         except Exception as e:
-            logger.error(f"Error in check_and_send_pages: {e}")
+            logger.error(f"error in check_and_send_pages: {e}")
 
     async def upload_command(self, message: types.Message, state: FSMContext):
-        """Handle /upload command"""
+        """handle /upload command"""
         if message.from_user is None:
             return
 
@@ -697,13 +695,9 @@ class PDFSenderBot:
             "📤 **Загрузка PDF книги**\n\n"
             "Отправьте мне PDF файл, который вы хотите читать.\n\n"
             "📋 **Требования:**\n"
-<<<<<<< HEAD
-            f"• Максимальный размер: {legacy_config.MAX_FILE_SIZE_MB}MB\n"
-=======
-            f"• Максимальный размер: {get_config().max_file_size // (1024 * 1024)}MB\n"
->>>>>>> b55000166c88d8e62842cd6c782225c1545c00cc
-            "• Только PDF формат\n"
-            "• Файл должен содержать текст или изображения",
+            f"• максимальный размер: {get_config().max_file_size // (1024 * 1024)}MB\n"
+            "• только PDF формат\n"
+            "• файл должен содержать текст или изображения",
             parse_mode="Markdown"
         )
 
@@ -734,42 +728,31 @@ class PDFSenderBot:
                                    reply_markup=self.keyboards.main_menu())
                 return
 
-            # Check file size before downloading
+            # check file size before downloading
             file_size = message.document.file_size
-<<<<<<< HEAD
-            if file_size and file_size > legacy_config.MAX_FILE_SIZE_MB * 1024 * 1024:
-                await message.reply(
-                    f"❌ **Файл слишком большой!**\n\n"
-                    f"Максимальный размер: {legacy_config.MAX_FILE_SIZE_MB}MB\n"
-=======
             if file_size and file_size > get_config().max_file_size:
                 await message.reply(
-                    f"❌ **Файл слишком большой!**\n\n"
-                    f"Максимальный размер: {get_config().max_file_size // (1024 * 1024)}MB\n"
->>>>>>> b55000166c88d8e62842cd6c782225c1545c00cc
-                    f"Размер вашего файла: {file_size / 1024 / 1024:.1f}MB",
+                    f"❌ **файл слишком большой!**\n\n"
+                    f"максимальный размер: {get_config().max_file_size // (1024 * 1024)}MB\n"
+                    f"размер вашего файла: {file_size / 1024 / 1024:.1f}MB",
                     parse_mode="Markdown",
                     reply_markup=self.keyboards.main_menu()
                 )
                 return
 
-            # Validate and sanitize filename
+            # validate and sanitize filename - probably overkill but whatever
             original_filename = message.document.file_name or "book.pdf"
             is_valid_name, sanitized_filename = FileValidator.validate_file_name(
                 original_filename
             )
 
-            # Download the file
+            # download the file
             file_id = message.document.file_id
             file_info = await self.bot.get_file(file_id)
             file_path = file_info.file_path
 
-            # Create user directory if it doesn't exist
-<<<<<<< HEAD
-            user_upload_dir = os.path.join(legacy_config.UPLOAD_DIR, str(user_id))
-=======
+            # create user directory if it doesn't exist
             user_upload_dir = os.path.join(get_config().upload_dir, str(user_id))
->>>>>>> b55000166c88d8e62842cd6c782225c1545c00cc
             os.makedirs(user_upload_dir, exist_ok=True)
 
             # Generate local file path with timestamp to avoid conflicts
@@ -1250,16 +1233,10 @@ class PDFSenderBot:
                 f"📸 Изображения: {CleanupManager.format_file_size(storage_stats['output_dir_size'])} ({storage_stats['output_dir_files']} файлов)\n"
                 f"📚 PDF файлы: {CleanupManager.format_file_size(storage_stats['upload_dir_size'])} ({storage_stats['upload_dir_files']} файлов)\n"
                 f"💿 Общий размер: {CleanupManager.format_file_size(storage_stats['total_size'])}\n\n"
-                f"⚙️ **Конфигурация:**\n"
-<<<<<<< HEAD
-                f"📄 Макс. размер файла: {legacy_config.MAX_FILE_SIZE_MB}MB\n"
-                f"🗂️ Хранение изображений: {legacy_config.IMAGE_RETENTION_DAYS} дней\n"
-                f"🖼️ Качество по умолчанию: {legacy_config.IMAGE_QUALITY}%"
-=======
-                f"📄 Макс. размер файла: {get_config().max_file_size // (1024 * 1024)}MB\n"
-                f"🗂️ Хранение изображений: {get_config().cleanup_older_than_days} дней\n"
-                f"🖼️ Качество по умолчанию: {get_config().image_quality}%"
->>>>>>> b55000166c88d8e62842cd6c782225c1545c00cc
+                f"⚙️ **конфигурация:**\n"
+                f"📄 макс размер файла: {get_config().max_file_size // (1024 * 1024)}MB\n"
+                f"🗂️ хранение изображений: {get_config().cleanup_older_than_days} дней\n"
+                f"🖼️ качество по умолчанию: {get_config().image_quality}%"
             )
 
             await message.answer(
@@ -1369,38 +1346,24 @@ class PDFSenderBot:
                 parse_mode="Markdown"
             )
             
-            # Create zip backup
+            # create zip backup  
             with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                # Backup database
-<<<<<<< HEAD
-                if os.path.exists(config.database_path):
-                    zipf.write(config.database_path, "database.json")
-=======
+                # backup database
                 if os.path.exists(get_config().database_path):
                     zipf.write(get_config().database_path, "database.json")
->>>>>>> b55000166c88d8e62842cd6c782225c1545c00cc
                 
-                # Backup user settings
+                # backup user settings
                 if os.path.exists("user_settings.json"):
                     zipf.write("user_settings.json", "user_settings.json")
                 
-                # Backup config (without sensitive data)
+                # backup config (without sensitive data)
                 zipf.writestr("config_backup.txt", 
-<<<<<<< HEAD
-                    f"PAGES_PER_SEND={legacy_config.PAGES_PER_SEND}\n"
-                    f"INTERVAL_HOURS={legacy_config.INTERVAL_HOURS}\n"
-                    f"SCHEDULE_TIME={legacy_config.SCHEDULE_TIME}\n"
-                    f"MAX_FILE_SIZE_MB={legacy_config.MAX_FILE_SIZE_MB}\n"
-                    f"IMAGE_RETENTION_DAYS={legacy_config.IMAGE_RETENTION_DAYS}\n"
-                    f"IMAGE_QUALITY={legacy_config.IMAGE_QUALITY}\n"
-=======
                     f"PAGES_PER_SEND={get_config().pages_per_send}\n"
                     f"INTERVAL_HOURS={get_config().interval_hours}\n"
                     f"SCHEDULE_TIME={get_config().schedule_time}\n"
                     f"MAX_FILE_SIZE_MB={get_config().max_file_size // (1024 * 1024)}\n"
                     f"IMAGE_RETENTION_DAYS={get_config().cleanup_older_than_days}\n"
                     f"IMAGE_QUALITY={get_config().image_quality}\n"
->>>>>>> b55000166c88d8e62842cd6c782225c1545c00cc
                 )
             
             backup_size = os.path.getsize(backup_path) / 1024 / 1024  # MB
