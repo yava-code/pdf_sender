@@ -1,28 +1,27 @@
-# 📚 PDF Sender Bot
+# PDF Sender Bot
 
 [![Python Package using Conda](https://github.com/yava-code/pdf_sender/actions/workflows/python-package-conda.yml/badge.svg)](https://github.com/yourusername/pdf_sender/actions/workflows/python-package-conda.yml)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-A Telegram bot that helps you read books by automatically sending PDF pages on a daily schedule. Perfect for maintaining a consistent reading habit! 📖
+telegram bot that sends pdf pages automatically on schedule... pretty useful for reading books i guess
 
-## ✨ Features
+## features
 
-- 🤖 **Automated Daily Delivery**: Sends PDF pages to users on a configurable schedule
-- 📄 **Manual Page Requests**: Get next pages anytime with simple commands
-- 📊 **Progress Tracking**: Keep track of current page and reading progress
-- 🎯 **Page Navigation**: Jump to any specific page instantly
-- 👥 **Multi-User Support**: Supports multiple users with shared progress
-- 🎮 **Gamification**:
-  - **Points**: Earn points for reading pages and completing books.
-  - **Levels**: Level up as you read more.
-  - **Achievements**: Unlock achievements for reaching milestones.
-  - **Leaderboards**: Compete with other readers.
-  - **Reading Streaks**: Maintain a daily reading streak.
-- 🗄️ **JSON Database**: Simple file-based storage for configuration and progress
-- 🧪 **Comprehensive Testing**: Full test suite with high coverage
-- ⚙️ **Environment Configuration**: Easy setup with environment variables
+- daily page delivery - sends pages automatically 
+- manual requests - get pages whenever you want
+- progress tracking - keeps track of where you are
+- page jumping - go to any page
+- multiple users - works for multiple people (shared progress though)
+- basic gamification stuff:
+  - points for reading
+  - levels 
+  - achievements and stuff
+  - leaderboards if youre into that
+  - reading streaks
+- json database (simple file storage)
+- some tests
+- environment config
 
 ## 🚀 Quick Start
 

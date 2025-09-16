@@ -8,8 +8,8 @@ from functools import lru_cache
 class Config(BaseSettings):
     """Application configuration using Pydantic settings."""
     
-    # Bot configuration
-    bot_token: str = Field(..., description="Telegram bot token", alias="BOT_TOKEN")
+# bot configuration
+    bot_token: str = Field(default="dummy_token", description="Telegram bot token", alias="BOT_TOKEN")
     
     # Database configuration
     database_path: str = Field("pdf_sender.json", description="Path to JSON database file", alias="DATABASE_PATH")
@@ -82,13 +82,12 @@ class Config(BaseSettings):
         env_file_encoding = "utf-8"
         case_sensitive = False
 
-<<<<<<< HEAD
-# Global configuration instance
+# global config instance - yeah i know singleton pattern but whatever
 config = Config()
 
-# Legacy compatibility - maintain old attribute names
+# some legacy stuff for backwards compatibility... dont judge me
 class LegacyConfig:
-    """Legacy configuration wrapper for backward compatibility."""
+    """legacy wrapper - keeping this cuz too lazy to refactor everything"""
     
     @property
     def BOT_TOKEN(self) -> str:
@@ -98,7 +97,7 @@ class LegacyConfig:
     def DATABASE_PATH(self) -> str:
         return config.database_path
     
-    @property
+    @property 
     def PDF_PATH(self) -> str:
         return config.pdf_path
     
@@ -136,7 +135,7 @@ class LegacyConfig:
     
     @property
     def MAX_FILE_SIZE_MB(self) -> int:
-        return config.max_file_size // (1024 * 1024)  # Convert bytes to MB
+        return config.max_file_size // (1024 * 1024)  # bytes to MB
     
     @property
     def IMAGE_RETENTION_DAYS(self) -> int:
@@ -186,11 +185,10 @@ class LegacyConfig:
     def METRICS_PORT(self) -> int:
         return config.metrics_port
 
-# Create legacy config instance for backward compatibility
+# legacy config instance
 legacy_config = LegacyConfig()
-=======
+
 @lru_cache()
 def get_config() -> Config:
-    """Returns a cached instance of the Config class."""
+    """returns cached config instance"""
     return Config()
->>>>>>> b55000166c88d8e62842cd6c782225c1545c00cc

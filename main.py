@@ -12,11 +12,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import FSInputFile
 
 from cleanup_manager import CleanupManager
-<<<<<<< HEAD
-from config import config, legacy_config
-=======
-from config import get_config, Config
->>>>>>> b55000166c88d8e62842cd6c782225c1545c00cc
+from config import config, legacy_config, get_config
 from database_manager import DatabaseManager
 from file_validator import FileValidator
 from pdf_reader import PDFReader
@@ -39,10 +35,7 @@ class UploadPDF(StatesGroup):
 
 class PDFSenderBot:
     def __init__(self):
-<<<<<<< HEAD
-=======
-        config = get_config()
->>>>>>> b55000166c88d8e62842cd6c782225c1545c00cc
+        config = get_config()  # yeah i know this could be better but works for now
         self.bot = Bot(token=config.bot_token)
         self.dp = Dispatcher(storage=MemoryStorage())
         self.db = DatabaseManager()
@@ -56,11 +49,7 @@ class PDFSenderBot:
         self.message_handler = MessageHandler(self)
 
         # Create upload directory if it doesn't exist
-<<<<<<< HEAD
-        os.makedirs(legacy_config.UPLOAD_DIR, exist_ok=True)
-=======
         os.makedirs(config.upload_dir, exist_ok=True)
->>>>>>> b55000166c88d8e62842cd6c782225c1545c00cc
 
         # Register handlers
         self._register_handlers()
@@ -697,13 +686,9 @@ class PDFSenderBot:
             "📤 **Загрузка PDF книги**\n\n"
             "Отправьте мне PDF файл, который вы хотите читать.\n\n"
             "📋 **Требования:**\n"
-<<<<<<< HEAD
-            f"• Максимальный размер: {legacy_config.MAX_FILE_SIZE_MB}MB\n"
-=======
-            f"• Максимальный размер: {get_config().max_file_size // (1024 * 1024)}MB\n"
->>>>>>> b55000166c88d8e62842cd6c782225c1545c00cc
-            "• Только PDF формат\n"
-            "• Файл должен содержать текст или изображения",
+            f"• максимальный размер: {get_config().max_file_size // (1024 * 1024)}MB\n"
+            "• только PDF формат\n"
+            "• файл должен содержать текст или изображения",
             parse_mode="Markdown"
         )
 
@@ -734,42 +719,31 @@ class PDFSenderBot:
                                    reply_markup=self.keyboards.main_menu())
                 return
 
-            # Check file size before downloading
+            # check file size before downloading
             file_size = message.document.file_size
-<<<<<<< HEAD
-            if file_size and file_size > legacy_config.MAX_FILE_SIZE_MB * 1024 * 1024:
-                await message.reply(
-                    f"❌ **Файл слишком большой!**\n\n"
-                    f"Максимальный размер: {legacy_config.MAX_FILE_SIZE_MB}MB\n"
-=======
             if file_size and file_size > get_config().max_file_size:
                 await message.reply(
-                    f"❌ **Файл слишком большой!**\n\n"
-                    f"Максимальный размер: {get_config().max_file_size // (1024 * 1024)}MB\n"
->>>>>>> b55000166c88d8e62842cd6c782225c1545c00cc
-                    f"Размер вашего файла: {file_size / 1024 / 1024:.1f}MB",
+                    f"❌ **файл слишком большой!**\n\n"
+                    f"максимальный размер: {get_config().max_file_size // (1024 * 1024)}MB\n"
+                    f"размер вашего файла: {file_size / 1024 / 1024:.1f}MB",
                     parse_mode="Markdown",
                     reply_markup=self.keyboards.main_menu()
                 )
                 return
 
-            # Validate and sanitize filename
+            # validate and sanitize filename - probably overkill but whatever
             original_filename = message.document.file_name or "book.pdf"
             is_valid_name, sanitized_filename = FileValidator.validate_file_name(
                 original_filename
             )
 
-            # Download the file
+            # download the file
             file_id = message.document.file_id
             file_info = await self.bot.get_file(file_id)
             file_path = file_info.file_path
 
-            # Create user directory if it doesn't exist
-<<<<<<< HEAD
-            user_upload_dir = os.path.join(legacy_config.UPLOAD_DIR, str(user_id))
-=======
+            # create user directory if it doesn't exist
             user_upload_dir = os.path.join(get_config().upload_dir, str(user_id))
->>>>>>> b55000166c88d8e62842cd6c782225c1545c00cc
             os.makedirs(user_upload_dir, exist_ok=True)
 
             # Generate local file path with timestamp to avoid conflicts
@@ -1250,16 +1224,10 @@ class PDFSenderBot:
                 f"📸 Изображения: {CleanupManager.format_file_size(storage_stats['output_dir_size'])} ({storage_stats['output_dir_files']} файлов)\n"
                 f"📚 PDF файлы: {CleanupManager.format_file_size(storage_stats['upload_dir_size'])} ({storage_stats['upload_dir_files']} файлов)\n"
                 f"💿 Общий размер: {CleanupManager.format_file_size(storage_stats['total_size'])}\n\n"
-                f"⚙️ **Конфигурация:**\n"
-<<<<<<< HEAD
-                f"📄 Макс. размер файла: {legacy_config.MAX_FILE_SIZE_MB}MB\n"
-                f"🗂️ Хранение изображений: {legacy_config.IMAGE_RETENTION_DAYS} дней\n"
-                f"🖼️ Качество по умолчанию: {legacy_config.IMAGE_QUALITY}%"
-=======
-                f"📄 Макс. размер файла: {get_config().max_file_size // (1024 * 1024)}MB\n"
-                f"🗂️ Хранение изображений: {get_config().cleanup_older_than_days} дней\n"
-                f"🖼️ Качество по умолчанию: {get_config().image_quality}%"
->>>>>>> b55000166c88d8e62842cd6c782225c1545c00cc
+                f"⚙️ **конфигурация:**\n"
+                f"📄 макс размер файла: {get_config().max_file_size // (1024 * 1024)}MB\n"
+                f"🗂️ хранение изображений: {get_config().cleanup_older_than_days} дней\n"
+                f"🖼️ качество по умолчанию: {get_config().image_quality}%"
             )
 
             await message.answer(
@@ -1369,38 +1337,24 @@ class PDFSenderBot:
                 parse_mode="Markdown"
             )
             
-            # Create zip backup
+            # create zip backup  
             with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                # Backup database
-<<<<<<< HEAD
-                if os.path.exists(config.database_path):
-                    zipf.write(config.database_path, "database.json")
-=======
+                # backup database
                 if os.path.exists(get_config().database_path):
                     zipf.write(get_config().database_path, "database.json")
->>>>>>> b55000166c88d8e62842cd6c782225c1545c00cc
                 
-                # Backup user settings
+                # backup user settings
                 if os.path.exists("user_settings.json"):
                     zipf.write("user_settings.json", "user_settings.json")
                 
-                # Backup config (without sensitive data)
+                # backup config (without sensitive data)
                 zipf.writestr("config_backup.txt", 
-<<<<<<< HEAD
-                    f"PAGES_PER_SEND={legacy_config.PAGES_PER_SEND}\n"
-                    f"INTERVAL_HOURS={legacy_config.INTERVAL_HOURS}\n"
-                    f"SCHEDULE_TIME={legacy_config.SCHEDULE_TIME}\n"
-                    f"MAX_FILE_SIZE_MB={legacy_config.MAX_FILE_SIZE_MB}\n"
-                    f"IMAGE_RETENTION_DAYS={legacy_config.IMAGE_RETENTION_DAYS}\n"
-                    f"IMAGE_QUALITY={legacy_config.IMAGE_QUALITY}\n"
-=======
                     f"PAGES_PER_SEND={get_config().pages_per_send}\n"
                     f"INTERVAL_HOURS={get_config().interval_hours}\n"
                     f"SCHEDULE_TIME={get_config().schedule_time}\n"
                     f"MAX_FILE_SIZE_MB={get_config().max_file_size // (1024 * 1024)}\n"
                     f"IMAGE_RETENTION_DAYS={get_config().cleanup_older_than_days}\n"
                     f"IMAGE_QUALITY={get_config().image_quality}\n"
->>>>>>> b55000166c88d8e62842cd6c782225c1545c00cc
                 )
             
             backup_size = os.path.getsize(backup_path) / 1024 / 1024  # MB
