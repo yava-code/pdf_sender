@@ -282,17 +282,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [PyMuPDF](https://github.com/pymupdf/PyMuPDF) - Python bindings for MuPDF's rendering capabilities
 - [APScheduler](https://github.com/agronholm/apscheduler) - Advanced Python Scheduler
 
-## 📞 Support
-
-If you have any questions or need help, please:
-
-1. Check the [Issues](https://github.com/yourusername/pdf_sender/issues) page
-2. Create a new issue if your problem isn't already reported
-3. Provide as much detail as possible, including:
-   - Your environment (OS, Python version)
-   - Error messages or logs
-   - Steps to reproduce the issue
-
----
-
-**Happy Reading! 📚✨**
