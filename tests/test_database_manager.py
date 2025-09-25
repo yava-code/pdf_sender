@@ -129,3 +129,20 @@ class TestDatabaseManager:
             # Should have initial data structure
             data = db_manager.load_data()
             assert "users" in data
+
+    def test_get_user_data_creates_and_saves_new_user(self, db_manager):
+        """Test that get_user_data creates and saves a new user if not found."""
+        user_id = 98765
+
+        # First, confirm the user does not exist
+        users_before = db_manager.get_users()
+        assert not any(u['id'] == user_id for u in users_before)
+
+        # Call get_user_data, which should create the user
+        user_data = db_manager.get_user_data(user_id)
+        assert user_data is not None
+        assert user_data['id'] == user_id
+
+        # Now, verify the user has been saved to the database
+        users_after = db_manager.get_users()
+        assert any(u['id'] == user_id for u in users_after), "User was not saved to the database"

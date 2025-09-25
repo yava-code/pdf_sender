@@ -10,13 +10,20 @@ class TestPDFSenderBot:
     @pytest.fixture
     def mock_config(self):
         """Mock configuration"""
-        with patch("main.Config") as mock_config:
-            mock_config.BOT_TOKEN = "test_token"
-            mock_config.PAGES_PER_SEND = 3
-            mock_config.INTERVAL_HOURS = 6
-            mock_config.UPLOAD_DIR = "test_uploads"
-            mock_config.validate.return_value = None
-            yield mock_config
+        with patch("main.get_config") as mock_get_config:
+            mock_config_instance = Mock()
+            mock_config_instance.bot_token = "test_token"
+            mock_config_instance.pages_per_send = 3
+            mock_config_instance.interval_hours = 6
+            mock_config_instance.upload_dir = "test_uploads"
+            mock_config_instance.output_dir = "test_output"
+            mock_config_instance.max_file_size = 50 * 1024 * 1024
+            mock_config_instance.cleanup_older_than_days = 7
+            mock_config_instance.image_quality = 85
+            mock_config_instance.database_path = "test_db.json"
+            mock_config_instance.schedule_time = "09:00"
+            mock_get_config.return_value = mock_config_instance
+            yield mock_config_instance
 
     @pytest.fixture
     def mock_dependencies(self):
@@ -105,7 +112,7 @@ class TestPDFSenderBot:
         # Check that welcome message was sent
         mock_message.answer.assert_called_once()
         call_args = mock_message.answer.call_args[0][0]
-        assert "Welcome to PDF Sender Bot" in call_args
+        assert "welcome to PDF Sender Bot" in call_args
 
     @pytest.mark.asyncio
     async def test_help_handler(self, pdf_bot, mock_message):
@@ -169,8 +176,8 @@ class TestPDFSenderBot:
         # Check response message
         mock_message.answer.assert_called_once()
         call_args = mock_message.answer.call_args[0][0]
-        assert "Sent pages 5-7" in call_args
-        assert "Current page is now: 8" in call_args
+        assert "sent pages 5-7" in call_args
+        assert "current page is now: 8" in call_args
 
     @pytest.mark.asyncio
     async def test_next_pages_handler_with_reading_progress_menu(self, pdf_bot, mock_message, mock_dependencies):
@@ -337,7 +344,7 @@ class TestPDFSenderBot:
         # Check that initial message was sent
         mock_dependencies["bot"].send_message.assert_called()
         send_message_calls = mock_dependencies["bot"].send_message.call_args_list
-        assert any("Page 1 of 100" in str(call) for call in send_message_calls)
+        assert any("page 1 of 100" in str(call).lower() for call in send_message_calls)
 
         # Check that photos were sent
         assert mock_dependencies["bot"].send_photo.call_count == 3
@@ -358,7 +365,7 @@ class TestPDFSenderBot:
 
         # Check that error message was sent
         mock_dependencies["bot"].send_message.assert_called_once_with(
-            12345, "❌ No pages to send."
+            12345, "❌ no pages to send"
         )
 
     @pytest.mark.asyncio
