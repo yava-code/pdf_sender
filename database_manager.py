@@ -61,14 +61,14 @@ class DatabaseManager:
             if user["id"] == user_id:
                 return user
 
-        # If user not found, create default user data
-        return {
+        # If user not found, create a new user and save it
+        new_user = {
             "id": user_id,
             "username": None,
-            "joined_at": None,
+            "joined_at": datetime.now().isoformat(),
             "current_page": 1,
             "total_pages": 0,
-            "pdf_path": get_config().pdf_path,  # Default PDF path
+            "pdf_path": get_config().pdf_path,
             "last_sent": None,
             "total_points": 0,
             "pages_read": 0,
@@ -79,8 +79,12 @@ class DatabaseManager:
             "achievements": [],
             "reading_sessions": [],
             "level": 1,
-            "experience": 0
+            "experience": 0,
         }
+        users.append(new_user)
+        data["users"] = users
+        self.save_data(data)
+        return new_user
 
     def get_current_page(self, user_id: int) -> int:
         """Get current page number for a user"""

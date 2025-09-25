@@ -135,10 +135,10 @@ class TestCleanupManager(unittest.TestCase):
 
     def test_get_storage_usage(self):
         """Test storage usage calculation"""
-        with patch("config.config.output_dir", self.output_dir), patch(
-            "config.config.upload_dir", self.upload_dir
-        ):
-
+        mock_config = unittest.mock.Mock()
+        mock_config.output_dir = self.output_dir
+        mock_config.upload_dir = self.upload_dir
+        with patch("cleanup_manager.get_config", return_value=mock_config):
             # Create test files
             self.create_test_file(self.output_dir, "page_1.jpg")
             self.create_test_file(self.output_dir, "page_2.png")
@@ -160,10 +160,10 @@ class TestCleanupManager(unittest.TestCase):
 
     def test_get_storage_usage_nonexistent_dirs(self):
         """Test storage usage with non-existent directories"""
-        with patch("config.config.output_dir", "/nonexistent1"), patch(
-            "config.config.upload_dir", "/nonexistent2"
-        ):
-
+        mock_config = unittest.mock.Mock()
+        mock_config.output_dir = "/nonexistent1"
+        mock_config.upload_dir = "/nonexistent2"
+        with patch("cleanup_manager.get_config", return_value=mock_config):
             stats = CleanupManager.get_storage_usage()
 
             self.assertEqual(stats["output_dir_files"], 0)
